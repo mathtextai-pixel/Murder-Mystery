@@ -94,7 +94,7 @@ class AdminCog(commands.Cog):
         if not category:
             category = await guild.create_category(ESTATE_CATEGORY_NAME)
 
-        # 3. Create Reception Gates
+        # 3. Create or Refresh Reception Gates
         gates_channel = discord.utils.get(category.text_channels, name=GATES_CHANNEL_NAME)
         if not gates_channel:
             overwrites = {
@@ -105,18 +105,25 @@ class AdminCog(commands.Cog):
                 overwrites=overwrites,
                 topic="Register your arrival with Giles the Butler before entering the estate."
             )
-            embed = discord.Embed(
-                title="🏰 Welcome to Ravenscroft Hall",
-                description=(
-                    "The Solstice storm has severed all contact with the mainland.\n"
-                    "Before Lord Julian Ravenscroft receives you tonight, all guests must register.\n\n"
-                    "Click the button below to begin your private registration with **Giles the Butler** in your DMs."
-                ),
-                color=0xD4AF37
-            )
-            await gates_channel.send(embed=embed, view=BeginRegistrationView())
+        else:
+            await gates_channel.edit(topic="Register your arrival with Giles the Butler before entering the estate.")
+            try:
+                await gates_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+            except Exception:
+                pass
 
-        # 4. Create Morning Post (Bulletin)
+        embed = discord.Embed(
+            title="🏰 Welcome to Ravenscroft Hall",
+            description=(
+                "The Solstice storm has severed all contact with the mainland.\n"
+                "Before Lord Julian Ravenscroft receives you tonight, all guests must register.\n\n"
+                "Click the button below to begin your private registration with **Giles the Butler** in your DMs."
+            ),
+            color=0xD4AF37
+        )
+        await gates_channel.send(embed=embed, view=BeginRegistrationView())
+
+        # 4. Create or Refresh Morning Post (Bulletin)
         bulletin_channel = discord.utils.get(category.text_channels, name=BULLETIN_CHANNEL_NAME)
         if not bulletin_channel:
             overwrites = {
@@ -135,7 +142,7 @@ class AdminCog(commands.Cog):
             )
             await bulletin_channel.send(embed=dispatch_embed)
 
-        # 5. Create Grand Parlor (Main Gathering Chat)
+        # 5. Create or Refresh Grand Parlor (Main Gathering Chat)
         parlor_channel = discord.utils.get(category.text_channels, name=PARLOR_CHANNEL_NAME)
         if not parlor_channel:
             overwrites = {
@@ -147,16 +154,26 @@ class AdminCog(commands.Cog):
                 overwrites=overwrites,
                 topic="🔥 The Grand Parlor Hearth. Daily estate polls and guest debates."
             )
-            await parlor_channel.send(
-                "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Giles here."
-            )
-            # Post Day 1 Parlor Poll
-            p1 = PARLOR_POLLS.get(1)
-            if p1:
-                poll_embed = discord.Embed(title=p1["question"], description="Select your suspicion below:", color=0x800000)
-                await parlor_channel.send(embed=poll_embed, view=ParlorPollView(1, p1["options"]))
+        else:
+            await parlor_channel.edit(topic="🔥 The Grand Parlor Hearth. Daily estate polls and guest debates.")
+            try:
+                await parlor_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+            except Exception:
+                pass
 
-        # 6. Create Act 1 Rooms (Open Day 1)
+        await parlor_channel.send(
+            "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Giles here."
+        )
+        p1 = PARLOR_POLLS.get(1)
+        if p1:
+            poll_embed = discord.Embed(
+                title=f"🗳️ DAY 1 PARLOR INQUIRY",
+                description=f"**{p1['question']}**\n\n*Cast your vote below:*",
+                color=0x800000
+            )
+            await parlor_channel.send(embed=poll_embed, view=ParlorPollView(1, p1["options"]))
+
+        # 6. Create or Refresh Act 1 Rooms (Open Day 1)
         for room in ACT_1_ROOMS:
             channel = discord.utils.get(category.text_channels, name=room["channel"])
             if not channel:
@@ -167,27 +184,47 @@ class AdminCog(commands.Cog):
                 channel = await category.create_text_channel(
                     room["channel"], 
                     overwrites=overwrites,
-                    topic=f"🏰 {room['name']} | Status: Unlocked for inquiry."
+                    topic=f"🏰 {room['name']} | Status: 🔓 Unlocked for inquiry."
                 )
-                embed = build_room_embed(room["id"], room["name"])
-                await channel.send(embed=embed, view=RoomSearchView(room["id"]))
+            else:
+                await channel.edit(topic=f"🏰 {room['name']} | Status: 🔓 Unlocked for inquiry.")
+                try:
+                    await channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                except Exception:
+                    pass
 
-        # 7. Create Act 2 & 3 Rooms (Hidden until unlocked)
+            embed = build_room_embed(room["id"], room["name"])
+            await channel.send(embed=embed, view=RoomSearchView(room["id"]))
+
+        # 7. Create or Refresh Act 2 & 3 Rooms
         all_later_rooms = ACT_2_ROOMS + ACT_3_ROOMS
+        current_day = get_current_day()
         for room in all_later_rooms:
             channel = discord.utils.get(category.text_channels, name=room["channel"])
+            # Determine if this room should be unlocked currently
+            is_unlocked = (room in ACT_2_ROOMS and current_day >= 5) or (room in ACT_3_ROOMS and current_day >= 9)
+            
             if not channel:
                 overwrites = {
                     everyone_role: discord.PermissionOverwrite(view_channel=False),
-                    guest_role: discord.PermissionOverwrite(view_channel=False)
+                    guest_role: discord.PermissionOverwrite(view_channel=is_unlocked)
                 }
+                status_txt = "🔓 Unlocked for inquiry." if is_unlocked else "🔒 Sealed by order of the estate."
                 channel = await category.create_text_channel(
                     room["channel"], 
                     overwrites=overwrites,
-                    topic=f"🏰 {room['name']} | Status: Sealed until authorized by the estate."
+                    topic=f"🏰 {room['name']} | Status: {status_txt}"
                 )
-                embed = build_room_embed(room["id"], room["name"])
-                await channel.send(embed=embed, view=RoomSearchView(room["id"]))
+            else:
+                status_txt = "🔓 Unlocked for inquiry." if is_unlocked else "🔒 Sealed by order of the estate."
+                await channel.edit(topic=f"🏰 {room['name']} | Status: {status_txt}")
+                try:
+                    await channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                except Exception:
+                    pass
+
+            embed = build_room_embed(room["id"], room["name"])
+            await channel.send(embed=embed, view=RoomSearchView(room["id"]))
 
         # 8. Create Voice Rooms
         voice_rooms = [
