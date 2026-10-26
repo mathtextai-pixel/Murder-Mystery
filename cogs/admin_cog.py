@@ -50,38 +50,7 @@ class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="my_dossier", description="Review your secret character dossier and found clues privately.")
-    async def my_dossier(self, interaction: discord.Interaction):
-        user_id = interaction.user.id
-        player = get_player(user_id)
-        if not player or player["interview_step"] < 4:
-            await interaction.response.send_message(
-                "You haven't completed your intake registration with Giles yet! Visit `#reception-gates`.", 
-                ephemeral=True
-            )
-            return
-
-        clues = get_player_clues(user_id)
-        clue_summary = "\n".join([f"• **{c['clue_title']}** ({c['room_id']}): {c['clue_text']}" for c in clues]) if clues else "No clues found yet. Use your daily candles to search rooms!"
-
-        embed = discord.Embed(
-            title=f"📜 Dossier: {player['character_title']}",
-            color=0x4A0E4E
-        )
-        embed.add_field(name="🎒 Personal Item", value=player["item_brought"] or "None declared", inline=False)
-        embed.add_field(name="🤫 Dirty Secret", value=player["dirty_secret"], inline=False)
-        embed.add_field(name="🎯 Secret Objective", value=player["secret_goal"], inline=False)
-        embed.add_field(name=f"🕯️ Candles Remaining", value=f"{player['tokens_remaining']} candles", inline=True)
-        embed.add_field(name=f"🔍 Clues In Your Pocket ({len(clues)})", value=clue_summary[:1000], inline=False)
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @app_commands.command(name="setup_estate", description="Host only: Auto-creates all Ravenscroft channels, roles, and permissions.")
-    @app_commands.default_permissions(administrator=True)
-    async def setup_estate(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        guild = interaction.guild
-
+    async def _build_or_refresh_estate(self, guild: discord.Guild):
         # 1. Create or get Guest Role
         guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
         if not guest_role:
@@ -201,7 +170,6 @@ class AdminCog(commands.Cog):
         current_day = get_current_day()
         for room in all_later_rooms:
             channel = discord.utils.get(category.text_channels, name=room["channel"])
-            # Determine if this room should be unlocked currently
             is_unlocked = (room in ACT_2_ROOMS and current_day >= 5) or (room in ACT_3_ROOMS and current_day >= 9)
             
             if not channel:
@@ -242,6 +210,37 @@ class AdminCog(commands.Cog):
                 }
                 await category.create_voice_channel(vname, user_limit=cap, overwrites=overwrites)
 
+    @app_commands.command(name="my_dossier", description="Review your secret character dossier and found clues privately.")
+    async def my_dossier(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        player = get_player(user_id)
+        if not player or player["interview_step"] < 4:
+            await interaction.response.send_message(
+                "You haven't completed your intake registration with Giles yet! Visit `#reception-gates`.", 
+                ephemeral=True
+            )
+            return
+
+        clues = get_player_clues(user_id)
+        clue_summary = "\n".join([f"• **{c['clue_title']}** ({c['room_id']}): {c['clue_text']}" for c in clues]) if clues else "No clues found yet. Use your daily candles to search rooms!"
+
+        embed = discord.Embed(
+            title=f"📜 Dossier: {player['character_title']}",
+            color=0x4A0E4E
+        )
+        embed.add_field(name="🎒 Personal Item", value=player["item_brought"] or "None declared", inline=False)
+        embed.add_field(name="🤫 Dirty Secret", value=player["dirty_secret"], inline=False)
+        embed.add_field(name="🎯 Secret Objective", value=player["secret_goal"], inline=False)
+        embed.add_field(name=f"🕯️ Candles Remaining", value=f"{player['tokens_remaining']} candles", inline=True)
+        embed.add_field(name=f"🔍 Clues In Your Pocket ({len(clues)})", value=clue_summary[:1000], inline=False)
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="setup_estate", description="Host only: Auto-creates all Ravenscroft channels, roles, and permissions.")
+    @app_commands.default_permissions(administrator=True)
+    async def setup_estate(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await self._build_or_refresh_estate(interaction.guild)
         await interaction.followup.send("✅ Ravenscroft Hall has been built! Rich room descriptions, occupancy badges, and estate polls are active.", ephemeral=True)
 
     @app_commands.command(name="test_advance_day", description="Test Mode: Advance to any day (1-14) instantly.")
@@ -253,6 +252,8 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
         set_current_day(day)
+        if day >= 2:
+            set_murder_active(True)
         refill_all_tokens()
 
         guild = interaction.guild
@@ -279,7 +280,7 @@ class AdminCog(commands.Cog):
             if p_data:
                 poll_embed = discord.Embed(
                     title=f"🗳️ DAY {day} PARLOR INQUIRY",
-                    description=f"**{p_data['question']}**\n\n*Cast your vote below to state your position to the room:*",
+                    description=f"**{p_data['question']}**\n\n*Cast your vote below:*",
                     color=0x800000
                 )
                 await parlor.send(embed=poll_embed, view=ParlorPollView(day, p_data["options"]))
@@ -339,52 +340,10 @@ class AdminCog(commands.Cog):
                 notice_text = NPC_MOVEMENT_NOTICES.get(npc, {}).get("on" if on_shift else "off", "")
                 if notice_text:
                     await chan.send(notice_text)
-                # Update channel topic
                 topic_status = "🟢 PRESENT & ACTIVE" if on_shift else "🔴 AWAY ON DUTIES"
                 await chan.edit(topic=f"🏰 {chan_name.replace('-', ' ').title()} | Status: {topic_status}")
 
         await interaction.response.send_message(f"✅ Set {npc.capitalize()} to {status_text}.", ephemeral=True)
-
-    @app_commands.command(name="test_trigger_reveal", description="Test Mode: Tally ballots and trigger Hermes 3's Grand Inquest reveal monologue.")
-    @app_commands.default_permissions(administrator=True)
-    async def test_trigger_reveal(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=False)
-        guild = interaction.guild
-        parlor = discord.utils.get(guild.text_channels, name=PARLOR_CHANNEL_NAME)
-        target_channel = parlor if parlor else interaction.channel
-
-        ballots = get_all_ballots()
-        if not ballots:
-            await interaction.followup.send("⚠️ No ballots have been submitted yet. Submit an accusation first via `/test_advance_day day:14`!", ephemeral=True)
-            return
-
-        # Score ballots
-        scores = []
-        for b in ballots:
-            score = 0
-            if "finch" in b["killer_guess"].lower() or "barnaby" in b["killer_guess"].lower():
-                score += 50
-            if "poker" in b["weapon_guess"].lower() or "iron" in b["weapon_guess"].lower():
-                score += 25
-            if "clock" in b["passage_guess"].lower() or "wall" in b["passage_guess"].lower() or "tunnel" in b["passage_guess"].lower():
-                score += 25
-            scores.append((b["display_name"], score, b["killer_guess"], b["statement"]))
-
-        scores.sort(key=lambda x: x[1], reverse=True)
-        winner = scores[0]
-
-        summary_text = "\n".join([f"- {s[0]} accused {s[2]} (Score: {s[1]}/100)" for s in scores])
-        reveal_speech = await generate_grand_reveal_speech(summary_text)
-
-        reveal_embed = discord.Embed(
-            title="⚖️ THE GRAND INQUEST: THE TRUTH REVEALED",
-            description=reveal_speech[:4000],
-            color=0x800000
-        )
-        reveal_embed.add_field(name="🏆 MASTER SLEUTH OF RAVENSCROFT", value=f"**{winner[0]}** with {winner[1]} points!", inline=False)
-        
-        await target_channel.send(embed=reveal_embed)
-        await interaction.followup.send("✅ The grand reveal monologue has been delivered to the Grand Parlor!")
 
     @app_commands.command(name="test_trigger_murder", description="Test Mode: Trigger the dramatic 11:42 PM murder blackout and unlock searches.")
     @app_commands.default_permissions(administrator=True)
@@ -436,14 +395,53 @@ class AdminCog(commands.Cog):
 
         await interaction.followup.send("⚡ The murder event has been triggered! Searches are now unlocked and NPCs are in crime-scene mode.", ephemeral=True)
 
+    @app_commands.command(name="test_trigger_reveal", description="Test Mode: Tally ballots and trigger Hermes 3's Grand Inquest reveal monologue.")
+    @app_commands.default_permissions(administrator=True)
+    async def test_trigger_reveal(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        guild = interaction.guild
+        parlor = discord.utils.get(guild.text_channels, name=PARLOR_CHANNEL_NAME)
+        target_channel = parlor if parlor else interaction.channel
+
+        ballots = get_all_ballots()
+        if not ballots:
+            await interaction.followup.send("⚠️ No ballots have been submitted yet. Submit an accusation first via `/test_advance_day day:14`!", ephemeral=True)
+            return
+
+        scores = []
+        for b in ballots:
+            score = 0
+            if "finch" in b["killer_guess"].lower() or "barnaby" in b["killer_guess"].lower():
+                score += 50
+            if "poker" in b["weapon_guess"].lower() or "iron" in b["weapon_guess"].lower():
+                score += 25
+            if "clock" in b["passage_guess"].lower() or "wall" in b["passage_guess"].lower() or "tunnel" in b["passage_guess"].lower():
+                score += 25
+            scores.append((b["display_name"], score, b["killer_guess"], b["statement"]))
+
+        scores.sort(key=lambda x: x[1], reverse=True)
+        winner = scores[0]
+
+        summary_text = "\n".join([f"- {s[0]} accused {s[2]} (Score: {s[1]}/100)" for s in scores])
+        reveal_speech = await generate_grand_reveal_speech(summary_text)
+
+        reveal_embed = discord.Embed(
+            title="⚖️ THE GRAND INQUEST: THE TRUTH REVEALED",
+            description=reveal_speech[:4000],
+            color=0x800000
+        )
+        reveal_embed.add_field(name="🏆 MASTER SLEUTH OF RAVENSCROFT", value=f"**{winner[0]}** with {winner[1]} points!", inline=False)
+        
+        await target_channel.send(embed=reveal_embed)
+        await interaction.followup.send("✅ The grand reveal monologue has been delivered to the Grand Parlor!")
+
     @app_commands.command(name="test_reset_game", description="Test Mode: Reset database and start completely fresh at Day 1 Pre-Murder.")
     @app_commands.default_permissions(administrator=True)
     async def test_reset_game(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         reset_entire_game()
-
-        # Re-run setup_estate logic to refresh channels back to Day 1
-        await self.setup_estate.callback(self, interaction)
+        await self._build_or_refresh_estate(interaction.guild)
+        await interaction.followup.send("🔄 Ravenscroft Hall has been completely reset to Day 1 Pre-Murder. All records cleared and rooms refreshed.", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdminCog(bot))
