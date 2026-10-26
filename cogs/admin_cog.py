@@ -50,7 +50,7 @@ class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    async def _build_or_refresh_estate(self, guild: discord.Guild):
+    async def _build_or_refresh_estate(self, guild: discord.Guild, deep_clean: bool = False):
         # 1. Create or get Guest Role
         guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
         if not guest_role:
@@ -62,6 +62,14 @@ class AdminCog(commands.Cog):
         category = discord.utils.get(guild.categories, name=ESTATE_CATEGORY_NAME)
         if not category:
             category = await guild.create_category(ESTATE_CATEGORY_NAME)
+
+        # If deep_clean is active, purge all previous chat and embeds from all estate channels
+        if deep_clean and category:
+            for ch in category.text_channels:
+                try:
+                    await ch.purge(limit=100)
+                except Exception as e:
+                    logger.warning(f"Deep clean purge failed on {ch.name}: {e}")
 
         # 3. Create or Refresh Reception Gates
         gates_channel = discord.utils.get(category.text_channels, name=GATES_CHANNEL_NAME)
@@ -76,10 +84,12 @@ class AdminCog(commands.Cog):
             )
         else:
             await gates_channel.edit(topic="Register your arrival with Giles the Butler before entering the estate.")
-            try:
-                await gates_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
-            except Exception:
-                pass
+            await gates_channel.set_permissions(everyone_role, view_channel=True, send_messages=False)
+            if not deep_clean:
+                try:
+                    await gates_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                except Exception:
+                    pass
 
         embed = discord.Embed(
             title="🏰 Welcome to Ravenscroft Hall",
@@ -103,13 +113,22 @@ class AdminCog(commands.Cog):
                 overwrites=overwrites,
                 topic="The official daily gazette of Ravenscroft Hall. Dispatches published at 9:00 AM."
             )
-            first_dispatch = DISPATCHES[1]
-            dispatch_embed = discord.Embed(
-                title=f"📜 {first_dispatch['headline']}",
-                description=first_dispatch["body"],
-                color=0xD4AF37
-            )
-            await bulletin_channel.send(embed=dispatch_embed)
+        else:
+            await bulletin_channel.edit(topic="The official daily gazette of Ravenscroft Hall. Dispatches published at 9:00 AM.")
+            await bulletin_channel.set_permissions(everyone_role, view_channel=True, send_messages=False)
+            if not deep_clean:
+                try:
+                    await bulletin_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                except Exception:
+                    pass
+
+        first_dispatch = DISPATCHES[1]
+        dispatch_embed = discord.Embed(
+            title=f"📜 {first_dispatch['headline']}",
+            description=first_dispatch["body"],
+            color=0xD4AF37
+        )
+        await bulletin_channel.send(embed=dispatch_embed)
 
         # 5. Create or Refresh Grand Parlor (Main Gathering Chat)
         parlor_channel = discord.utils.get(category.text_channels, name=PARLOR_CHANNEL_NAME)
@@ -125,10 +144,13 @@ class AdminCog(commands.Cog):
             )
         else:
             await parlor_channel.edit(topic="🔥 The Grand Parlor Hearth. Daily estate polls and guest debates.")
-            try:
-                await parlor_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
-            except Exception:
-                pass
+            await parlor_channel.set_permissions(everyone_role, view_channel=False)
+            await parlor_channel.set_permissions(guest_role, view_channel=True, send_messages=True)
+            if not deep_clean:
+                try:
+                    await parlor_channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                except Exception:
+                    pass
 
         await parlor_channel.send(
             "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Giles here."
@@ -157,10 +179,13 @@ class AdminCog(commands.Cog):
                 )
             else:
                 await channel.edit(topic=f"🏰 {room['name']} | Status: 🔓 Unlocked for inquiry.")
-                try:
-                    await channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
-                except Exception:
-                    pass
+                await channel.set_permissions(everyone_role, view_channel=False)
+                await channel.set_permissions(guest_role, view_channel=True, send_messages=True)
+                if not deep_clean:
+                    try:
+                        await channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                    except Exception:
+                        pass
 
             embed = build_room_embed(room["id"], room["name"])
             await channel.send(embed=embed, view=RoomSearchView(room["id"]))
@@ -186,10 +211,13 @@ class AdminCog(commands.Cog):
             else:
                 status_txt = "🔓 Unlocked for inquiry." if is_unlocked else "🔒 Sealed by order of the estate."
                 await channel.edit(topic=f"🏰 {room['name']} | Status: {status_txt}")
-                try:
-                    await channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
-                except Exception:
-                    pass
+                await channel.set_permissions(everyone_role, view_channel=False)
+                await channel.set_permissions(guest_role, view_channel=is_unlocked)
+                if not deep_clean:
+                    try:
+                        await channel.purge(limit=5, check=lambda m: m.author.id == self.bot.user.id)
+                    except Exception:
+                        pass
 
             embed = build_room_embed(room["id"], room["name"])
             await channel.send(embed=embed, view=RoomSearchView(room["id"]))
@@ -209,6 +237,9 @@ class AdminCog(commands.Cog):
                     guest_role: discord.PermissionOverwrite(view_channel=True, connect=True)
                 }
                 await category.create_voice_channel(vname, user_limit=cap, overwrites=overwrites)
+            else:
+                await vchan.set_permissions(everyone_role, view_channel=False)
+                await vchan.set_permissions(guest_role, view_channel=True, connect=True)
 
     @app_commands.command(name="my_dossier", description="Review your secret character dossier and found clues privately.")
     async def my_dossier(self, interaction: discord.Interaction):
@@ -440,8 +471,18 @@ class AdminCog(commands.Cog):
     async def test_reset_game(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         reset_entire_game()
-        await self._build_or_refresh_estate(interaction.guild)
-        await interaction.followup.send("🔄 Ravenscroft Hall has been completely reset to Day 1 Pre-Murder. All records cleared and rooms refreshed.", ephemeral=True)
+
+        # Strip Guest role from all guild members so they must re-register
+        guest_role = discord.utils.get(interaction.guild.roles, name=GUEST_ROLE_NAME)
+        if guest_role:
+            for member in list(guest_role.members):
+                try:
+                    await member.remove_roles(guest_role, reason="Estate reset to Day 1 Pre-Murder")
+                except Exception as e:
+                    logger.warning(f"Could not remove Guest role from {member.display_name}: {e}")
+
+        await self._build_or_refresh_estate(interaction.guild, deep_clean=True)
+        await interaction.followup.send("🔄 Ravenscroft Hall has been completely wiped and reset to Day 1 Pre-Murder! All chat history cleared, room embeds refreshed, and guest roles removed.", ephemeral=True)
 
     @app_commands.command(name="test_nightly_summary", description="Test Mode: Send the 10:30 PM personalized nightly briefing to all registered guests' DMs.")
     @app_commands.default_permissions(administrator=True)
