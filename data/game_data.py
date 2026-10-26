@@ -386,58 +386,159 @@ ROOM_ATMOSPHERES = {
 PARLOR_POLLS = {
     1: {
         "question": "🏛️ ESTATE POLL: Upon arriving at Ravenscroft Hall, which guest appeared most uneasy?",
-        "options": ["The Estranged Heir", "The Family Physician", "The Estate Trustee", "The Relic Appraiser", "The Private Archivist", "The Socialite", "The Botanist", "The Chauffeur"]
+        "options": [
+            "The guest whose carriage arrived in an unusual hurry",
+            "The guest who refused to hand their locked case to Giles",
+            "The guest who went pale when Julian proposed the toast",
+            "The guest who immediately asked where the servants' stairs were",
+            "The guest who kept glancing toward the storm outside",
+            "The guest who lingered alone in the shadow of the gallery"
+        ]
     },
     2: {
         "question": "⚖️ ESTATE POLL: Whose whereabouts between 10:00 PM and midnight appear the most suspicious?",
-        "options": ["Those claiming to be asleep", "Those seen near the terrace", "Those lingering in the library", "Those wandering the domestic quarters"]
+        "options": [
+            "Those claiming to have been asleep in their bedchambers",
+            "Those seen near the rain-swept terrace doors",
+            "Those lingering alone in the library",
+            "Those wandering near the domestic service corridors"
+        ]
     },
     3: {
-        "question": "📜 ESTATE POLL: A will document was tampered with. Who had the strongest motive to alter it?",
-        "options": ["The Disinherited Heir", "The Estate Lawyer", "The Blackmailed Archivist", "The Indebted Socialite"]
+        "question": "📜 ESTATE POLL: A will document was tampered with. What motive seems most plausible?",
+        "options": [
+            "A guest burdened by desperate, ruinous personal debts",
+            "A guest whose secret past Julian threatened to expose",
+            "A guest seeking to reclaim a family heirloom or patent",
+            "An outside confederate aided by an accomplice inside"
+        ]
     },
     4: {
         "question": "🧳 ESTATE POLL: Should the guests consent to an immediate mutual search of all traveling luggage?",
-        "options": ["Yes — Complete transparency now!", "No — An outrageous violation of privacy!", "Only under Giles's supervision", "Only if the Doctor is searched first"]
+        "options": [
+            "Yes — Complete transparency now!",
+            "No — An outrageous violation of personal privacy!",
+            "Only under Giles's strict personal supervision",
+            "Only once the estate grounds are secured from the squall"
+        ]
     },
     5: {
         "question": "🚪 ESTATE POLL: The Wine Cellar & Domestic Wing are now unlocked. Where should our inquiry focus first?",
-        "options": ["The Coal Furnace in the Cellar", "Julian's Bedside Safe", "The Kitchen Dumbwaiter", "The Telephone Wires"]
+        "options": [
+            "The Coal Furnace in the Cellar",
+            "Julian's Bedside Safe",
+            "The Kitchen Dumbwaiter",
+            "The Telephone Wires"
+        ]
     },
     6: {
-        "question": "🧪 ESTATE POLL: Traces of sedative and toxin have been found. Which suspect is lying about their knowledge?",
-        "options": ["The Family Physician (Laudanum)", "The Botanist (Foxglove)", "Mrs. Gable (The Kitchen Tea)", "Neither — It was an outside poison"]
+        "question": "🧪 ESTATE POLL: Traces of sedative and toxin have been found. Which explanation do you believe?",
+        "options": [
+            "Someone quietly dosed the dinner port wine carafe",
+            "Someone laced the bedtime chamomile tea service",
+            "Julian was medicating himself in secret before the fall",
+            "An intruder slipped poison into the kitchen larder"
+        ]
     },
     7: {
         "question": "🔥 MIDWAY POLL: If you had to name a prime suspect right now, who would you lock in the cellar?",
-        "options": ["The Heir", "The Doctor", "The Lawyer", "The Appraiser", "The Archivist", "The Socialite", "The Botanist", "The Chauffeur"]
+        "options": [
+            "The guest whose story has changed twice",
+            "The guest who has spent the most candles searching alone",
+            "The guest who keeps whispering to the estate staff",
+            "Nobody — There is an uninvited squatter living in the walls!"
+        ]
     },
     8: {
         "question": "🩸 ESTATE POLL: Autopsy reveals Julian died of blunt head trauma, not the fall. Was this premeditated murder?",
-        "options": ["Cold premeditated murder", "A panicked crime of passion", "An accidental struggle gone wrong", "The work of a ruthless intruder"]
+        "options": [
+            "Cold premeditated murder planned well in advance",
+            "A panicked crime of passion or sudden rage",
+            "An accidental struggle over stolen property gone wrong",
+            "The work of a ruthless outside intruder"
+        ]
     },
     9: {
         "question": "🗝️ ESTATE POLL: The Crypt and Clocktower are open. What secret will prove most damning?",
-        "options": ["The Phantom in the Attic", "The Missing Iron Poker", "The Stolen Blackwood Emerald", "The Secret Wall Passages"]
+        "options": [
+            "The signs of squatter habitation in the Attic",
+            "The Missing Iron Fireplace Poker",
+            "The Stolen Blackwood Emerald",
+            "The Secret Subterranean Passages"
+        ]
     },
     10: {
         "question": "🍞 ESTATE POLL: Tins of food have been stolen from the larder for weeks. Does someone live in the walls?",
-        "options": ["Yes — An uninvited squatter!", "No — One of the guests is hoarding food", "Mrs. Gable is miscounting her stores", "It is an elaborate hoax"]
+        "options": [
+            "Yes — An uninvited squatter lives in the crawlspaces!",
+            "No — One of the guests is hoarding provisions in their room",
+            "Mrs. Gable is miscounting her stores",
+            "It is an elaborate diversion staged by the killer"
+        ]
     },
     11: {
         "question": "👤 ESTATE POLL: Mainland records name Barnaby Finch. Is the disgraced former steward among us?",
-        "options": ["He is hiding in the secret tunnels", "He has an accomplice among the 8 guests", "He already fled the island", "He is seeking total vengeance"]
+        "options": [
+            "He is hiding in the secret service passages",
+            "He has an accomplice among the guests",
+            "He already fled the island by boat",
+            "He is seeking total vengeance on the family"
+        ]
     },
     12: {
         "question": "🕰️ ESTATE POLL: The grandfather clock conceals a hidden panel. Who discovered it first?",
-        "options": ["The Chauffeur / Veteran", "The Antiquities Appraiser", "Barnaby Finch himself", "Giles the Butler"]
+        "options": [
+            "One of the guests during their candle searches",
+            "Barnaby Finch during his years as steward",
+            "Giles the Butler during his evening rounds",
+            "Lord Julian before his death"
+        ]
     },
     13: {
         "question": "📋 INQUEST PREP: With the inquest tomorrow, how confident are you in your final theory?",
-        "options": ["100% — I know killer, weapon, and motive", "Fairly confident — A few details hazy", "Suspicious of two people still", "Completely baffled!"]
+        "options": [
+            "100% — I know killer, weapon, and motive",
+            "Fairly confident — A few minor details hazy",
+            "Suspicious of two people still",
+            "Completely baffled!"
+        ]
     },
     14: {
         "question": "🏆 FINAL CONSENSUS: Who will be crowned Master Sleuth of Ravenscroft tonight?",
-        "options": ["The sharpest detective among us", "The one who kept their secret best", "Nobody — Barnaby outsmarted us all!", "Giles the Butler"]
+        "options": [
+            "The sharpest detective among us",
+            "The guest who guarded their secrets best",
+            "Nobody — Barnaby Finch outsmarted everyone!",
+            "Giles the Butler"
+        ]
     }
 }
+
+def get_parlor_poll(day: int) -> dict:
+    """
+    Returns the daily parlor poll. For suspect polls (Day 1 and Day 7),
+    if players have registered in the database, their custom character titles
+    and display names are injected dynamically into the voting options!
+    """
+    poll_data = PARLOR_POLLS.get(day, PARLOR_POLLS[1]).copy()
+    
+    if day in (1, 7):
+        try:
+            from database import get_all_players
+            players = get_all_players()
+            registered = [p for p in players if p.get("interview_step", 0) >= 4]
+            if registered:
+                custom_options = []
+                for p in registered:
+                    title = p.get("character_title") or "Mysterious Guest"
+                    name = p.get("display_name") or p.get("username") or "Guest"
+                    label = f"{title} ({name})"
+                    if len(label) > 95:
+                        label = label[:92] + "..."
+                    custom_options.append(label)
+                if custom_options:
+                    poll_data["options"] = custom_options[:25]
+        except Exception:
+            pass
+            
+    return poll_data

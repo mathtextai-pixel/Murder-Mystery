@@ -11,7 +11,7 @@ from database import (
     get_npc_status, reset_entire_game, get_all_ballots, get_all_players,
     get_player, get_player_clues, is_murder_active, set_murder_active
 )
-from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION
+from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION, get_parlor_poll
 from cogs.intake_view import BeginRegistrationView
 from cogs.search_view import RoomSearchView, build_room_embed
 from cogs.inquest_view import InquestView
@@ -155,7 +155,7 @@ class AdminCog(commands.Cog):
         await parlor_channel.send(
             "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Giles here."
         )
-        p1 = PARLOR_POLLS.get(1)
+        p1 = get_parlor_poll(1)
         if p1:
             poll_embed = discord.Embed(
                 title=f"🗳️ DAY 1 PARLOR INQUIRY",
@@ -307,7 +307,7 @@ class AdminCog(commands.Cog):
 
         # 2. Post Daily Parlor Poll in Grand Parlor
         if parlor:
-            p_data = PARLOR_POLLS.get(day)
+            p_data = get_parlor_poll(day)
             if p_data:
                 poll_embed = discord.Embed(
                     title=f"🗳️ DAY {day} PARLOR INQUIRY",

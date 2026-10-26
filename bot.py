@@ -11,7 +11,7 @@ from config import (
 from database import (
     init_db, get_current_day, set_current_day, refill_all_tokens, set_npc_shift, set_murder_active
 )
-from data.game_data import DISPATCHES, PARLOR_POLLS
+from data.game_data import DISPATCHES, PARLOR_POLLS, get_parlor_poll
 from cogs.intake_view import BeginRegistrationView, handle_dm_intake
 from cogs.search_view import RoomSearchView
 from cogs.inquest_view import InquestView
@@ -61,7 +61,7 @@ async def scheduled_morning_dispatch():
 
         # 2. Post Daily Parlor Poll
         if parlor:
-            p_data = PARLOR_POLLS.get(day)
+            p_data = get_parlor_poll(day)
             if p_data:
                 poll_embed = discord.Embed(
                     title=f"🗳️ DAY {day} PARLOR INQUIRY",
