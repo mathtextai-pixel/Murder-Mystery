@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import logging
-from database import get_npc_status, get_player, get_current_day, check_and_award_interrogation_bonus
+from database import get_npc_status, get_player, get_current_day, check_and_award_interrogation_bonus, is_murder_active
 from ollama_client import generate_npc_reply
 
 logger = logging.getLogger("NpcCog")
@@ -95,7 +95,8 @@ class NpcCog(commands.Cog):
         npc_display_name = npc_status["name"] if npc_status else "Giles"
 
         async with message.channel.typing():
-            reply_text = await generate_npc_reply(npc_id, clean_prompt, speaker_name, recent_messages)
+            murder_active = is_murder_active()
+            reply_text = await generate_npc_reply(npc_id, clean_prompt, speaker_name, recent_messages, is_murder_active=murder_active)
 
         # Check and award interrogation bonus (+1 candle once per day)
         current_day = get_current_day()

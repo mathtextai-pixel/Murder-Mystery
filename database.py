@@ -80,6 +80,7 @@ def init_db():
     # Default State
     c.execute("INSERT OR IGNORE INTO game_state (key, value) VALUES ('current_day', '1')")
     c.execute("INSERT OR IGNORE INTO game_state (key, value) VALUES ('game_active', '1')")
+    c.execute("INSERT OR IGNORE INTO game_state (key, value) VALUES ('murder_active', '0')")
     
     # Default NPCs
     default_npcs = [
@@ -111,6 +112,22 @@ def set_current_day(day: int):
     conn = get_connection()
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('current_day', ?)", (str(day),))
+    conn.commit()
+    conn.close()
+
+def is_murder_active() -> bool:
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT value FROM game_state WHERE key = 'murder_active'")
+    row = c.fetchone()
+    conn.close()
+    return (row["value"] == "1") if row else False
+
+def set_murder_active(active: bool):
+    conn = get_connection()
+    c = conn.cursor()
+    val = "1" if active else "0"
+    c.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('murder_active', ?)", (val,))
     conn.commit()
     conn.close()
 
@@ -281,6 +298,7 @@ def reset_entire_game():
     c.execute("DELETE FROM player_clues")
     c.execute("DELETE FROM ballots")
     c.execute("UPDATE game_state SET value = '1' WHERE key = 'current_day'")
+    c.execute("UPDATE game_state SET value = '0' WHERE key = 'murder_active'")
     c.execute("UPDATE npc_state SET is_on_shift = 1")
     conn.commit()
     conn.close()

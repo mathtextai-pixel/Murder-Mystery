@@ -1,7 +1,7 @@
 import aiohttp
 import logging
 from config import OLLAMA_HOST, OLLAMA_MODEL
-from data.prompts import INTAKE_VALIDATOR_PROMPT, NPC_PROMPTS, REVEAL_PROMPT
+from data.prompts import INTAKE_VALIDATOR_PROMPT, NPC_PROMPTS, PRE_MURDER_NPC_PROMPTS, REVEAL_PROMPT
 
 logger = logging.getLogger("OllamaClient")
 
@@ -58,8 +58,9 @@ async def validate_and_respond_intake(step: int, user_text: str, history: list) 
         # Default fallback to accept if the model didn't use tags but gave a good answer
         return True, raw_response
 
-async def generate_npc_reply(npc_id: str, user_text: str, speaker_name: str, recent_channel_messages: list) -> str:
-    system = NPC_PROMPTS.get(npc_id, NPC_PROMPTS["giles"])
+async def generate_npc_reply(npc_id: str, user_text: str, speaker_name: str, recent_channel_messages: list, is_murder_active: bool = False) -> str:
+    prompts_dict = NPC_PROMPTS if is_murder_active else PRE_MURDER_NPC_PROMPTS
+    system = prompts_dict.get(npc_id, prompts_dict["giles"])
     
     messages = []
     for msg in recent_channel_messages[-4:]:

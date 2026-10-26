@@ -1,7 +1,7 @@
 import discord
 import random
 from database import (
-    get_player, consume_token, record_player_clue, get_player_clues, get_npc_status
+    get_player, consume_token, record_player_clue, get_player_clues, get_npc_status, is_murder_active
 )
 from data.game_data import ROOM_POOLS, ROOM_ATMOSPHERES
 
@@ -56,6 +56,15 @@ class RoomSearchView(discord.ui.View):
         if not player or player["interview_step"] < 4:
             await interaction.response.send_message(
                 "You must complete your guest registration with Giles at `#reception-gates` before searching the estate.",
+                ephemeral=True
+            )
+            return
+
+        if not is_murder_active():
+            await interaction.response.send_message(
+                "🕯️ **Searches Forbidden Before Dinner.**\n"
+                "Lord Julian is currently resting upstairs and has strictly forbidden guests from prying through estate drawers.\n"
+                "Please converse with your fellow guests in `#the-grand-parlor` until the evening bells.",
                 ephemeral=True
             )
             return

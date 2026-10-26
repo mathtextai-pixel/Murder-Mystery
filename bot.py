@@ -9,7 +9,7 @@ from config import (
     BULLETIN_CHANNEL_NAME, PARLOR_CHANNEL_NAME, ESTATE_CATEGORY_NAME, GUEST_ROLE_NAME
 )
 from database import (
-    init_db, get_current_day, set_current_day, refill_all_tokens, set_npc_shift
+    init_db, get_current_day, set_current_day, refill_all_tokens, set_npc_shift, set_murder_active
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS
 from cogs.intake_view import BeginRegistrationView, handle_dm_intake
@@ -37,6 +37,8 @@ async def scheduled_morning_dispatch():
         return
     
     set_current_day(day)
+    if day >= 2:
+        set_murder_active(True)
     refill_all_tokens()
     logger.info(f"Fired scheduled morning dispatch for Day {day}")
 

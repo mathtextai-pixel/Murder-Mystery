@@ -9,7 +9,7 @@ from config import (
 from database import (
     get_current_day, set_current_day, refill_all_tokens, set_npc_shift,
     get_npc_status, reset_entire_game, get_all_ballots, get_all_players,
-    get_player, get_player_clues
+    get_player, get_player_clues, is_murder_active, set_murder_active
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION
 from cogs.intake_view import BeginRegistrationView
@@ -386,11 +386,64 @@ class AdminCog(commands.Cog):
         await target_channel.send(embed=reveal_embed)
         await interaction.followup.send("✅ The grand reveal monologue has been delivered to the Grand Parlor!")
 
-    @app_commands.command(name="test_reset_game", description="Test Mode: Reset database and start completely fresh.")
+    @app_commands.command(name="test_trigger_murder", description="Test Mode: Trigger the dramatic 11:42 PM murder blackout and unlock searches.")
+    @app_commands.default_permissions(administrator=True)
+    async def test_trigger_murder(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        set_murder_active(True)
+        set_current_day(2)
+        refill_all_tokens()
+
+        guild = interaction.guild
+        parlor = discord.utils.get(guild.text_channels, name=PARLOR_CHANNEL_NAME)
+        bulletin = discord.utils.get(guild.text_channels, name=BULLETIN_CHANNEL_NAME)
+
+        # 1. Dramatic Blackout Broadcast in Parlor
+        if parlor:
+            blackout_embed = discord.Embed(
+                title="⚡ MIDNIGHT BLACKOUT — 11:42 PM",
+                description=(
+                    "*(A violent thunderclap shatters the leaded glass windows! The grand chandeliers flicker violently and die into pitch darkness. "
+                    "A muffled cry and a sickening crash echo from the top of the Grand Staircase. The grandfather clock strikes 11:42 PM).* \n\n"
+                    "**Giles:** *'Great heavens above! Remain where you are, ladies and gentlemen! Lord Julian... the master has fallen at the base of the stairs! "
+                    "He is gone! The estate gates are locked from the outside! No one leaves Ravenscroft Hall!'*"
+                ),
+                color=0x800000
+            )
+            blackout_embed.set_footer(text="🕯️ The crime scene is now active. All guests have received 2 search candles.")
+            await parlor.send(embed=blackout_embed)
+
+            # Day 2 Poll
+            p2 = PARLOR_POLLS.get(2)
+            if p2:
+                poll_embed = discord.Embed(
+                    title=f"🗳️ DAY 2 PARLOR INQUIRY",
+                    description=f"**{p2['question']}**\n\n*Cast your suspicion below:*",
+                    color=0x800000
+                )
+                await parlor.send(embed=poll_embed, view=ParlorPollView(2, p2["options"]))
+
+        # 2. Bulletin Dispatch
+        if bulletin:
+            d2 = DISPATCHES[2]
+            dispatch_embed = discord.Embed(
+                title=f"📜 DAY 2: {d2['headline']}",
+                description=d2["body"],
+                color=0xD4AF37
+            )
+            dispatch_embed.set_footer(text="🕯️ All guests have had their 2 candles replenished. Searches are now active.")
+            await bulletin.send(embed=dispatch_embed)
+
+        await interaction.followup.send("⚡ The murder event has been triggered! Searches are now unlocked and NPCs are in crime-scene mode.", ephemeral=True)
+
+    @app_commands.command(name="test_reset_game", description="Test Mode: Reset database and start completely fresh at Day 1 Pre-Murder.")
     @app_commands.default_permissions(administrator=True)
     async def test_reset_game(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         reset_entire_game()
-        await interaction.response.send_message("🔄 Ravenscroft Hall has been completely reset to Day 1. All records cleared.", ephemeral=True)
+
+        # Re-run setup_estate logic to refresh channels back to Day 1
+        await self.setup_estate.callback(self, interaction)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdminCog(bot))
