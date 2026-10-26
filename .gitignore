@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+.env
+ravenscroft.db
+.DS_Store
