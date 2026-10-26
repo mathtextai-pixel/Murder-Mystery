@@ -4,9 +4,8 @@ import logging
 from database import (
     get_player, create_or_get_player, update_player_interview, get_all_players
 )
-from data.game_data import SECRET_ARCHETYPES
 from config import GUEST_ROLE_NAME
-from ollama_client import validate_and_respond_intake
+from ollama_client import validate_and_respond_intake, generate_custom_player_dossier
 
 logger = logging.getLogger("IntakeView")
 
@@ -92,22 +91,23 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
         next_prompt = f"**Giles:** {reply_text}\n\n**Question {next_step}:** {STEP_QUESTIONS[next_step]}"
         await message.channel.send(next_prompt)
     else:
-        # Step 3 accepted -> finalize player!
-        # Pick an unused archetype
-        all_players = get_all_players()
-        used_secrets = {p["dirty_secret"] for p in all_players if p["dirty_secret"]}
-        assigned_archetype = None
-        for arc in SECRET_ARCHETYPES:
-            if arc["secret"] not in used_secrets:
-                assigned_archetype = arc
-                break
-        if not assigned_archetype:
-            assigned_archetype = SECRET_ARCHETYPES[0]
+        # Step 3 accepted -> dynamically weave custom persona from their freely chosen answers!
+        q1_ans = intake_data.get("question_1", "Guest")
+        q2_ans = intake_data.get("question_2", "A mysterious traveling case")
+        q3_ans = intake_data.get("question_3", "A personal disagreement")
 
-        char_title = f"{message.author.display_name}, {assigned_archetype['title_suffix']}"
-        dirty_secret = assigned_archetype["secret"]
-        secret_goal = assigned_archetype["goal"]
-        item_brought = intake_data.get("question_2", "A mysterious traveling case")
+        async with message.channel.typing():
+            custom_dossier = await generate_custom_player_dossier(
+                player_name=message.author.display_name,
+                q1=q1_ans,
+                q2=q2_ans,
+                q3=q3_ans
+            )
+
+        char_title = custom_dossier["title"]
+        dirty_secret = custom_dossier["secret"]
+        secret_goal = custom_dossier["goal"]
+        item_brought = q2_ans
 
         update_player_interview(
             message.author.id,

@@ -69,6 +69,49 @@ async def generate_npc_reply(npc_id: str, user_text: str, speaker_name: str, rec
     
     return await chat_completion(messages, system_prompt=system)
 
+async def generate_custom_player_dossier(player_name: str, q1: str, q2: str, q3: str) -> dict:
+    """
+    Dynamically weaves the player's freely chosen profession, item, and dispute into
+    a custom title, dirty secret, and secret objective.
+    """
+    system_prompt = (
+        "You are the master Gothic storyteller of Ravenscroft Hall.\n"
+        "A player has just created their own background during their intake interview.\n"
+        "Your task: Weave their freely chosen profession, personal item, and conflict into a cohesive character profile.\n"
+        "CRITICAL RULES:\n"
+        "- TITLE: Combine their name with their freely chosen trade/profession (e.g. '[Name], The [Profession]').\n"
+        "- SECRET: A 1-2 sentence suspicious act they committed between 10:00 and 11:30 PM involving their trade or item that looks incriminating, BUT they did NOT kill Julian.\n"
+        "- GOAL: A 1-sentence objective for what they must hide or accomplish during the 14 days.\n\n"
+        "FORMAT EXACTLY AS:\n"
+        "TITLE: <title>\n"
+        "SECRET: <secret>\n"
+        "GOAL: <goal>"
+    )
+    user_prompt = (
+        f"Player Name: {player_name}\n"
+        f"Profession & Relation: {q1}\n"
+        f"Personal Item: {q2}\n"
+        f"Conflict/Tension: {q3}\n\n"
+        f"Generate the custom dossier now."
+    )
+    messages = [{"role": "user", "content": user_prompt}]
+    raw = await chat_completion(messages, system_prompt=system_prompt)
+    
+    title = f"{player_name}, The Mysterious Guest"
+    secret = "You were seen wandering the upper corridors near Julian's study shortly before midnight."
+    goal = "Keep anyone from discovering why you were wandering the halls."
+    
+    for line in raw.split("\n"):
+        line = line.strip()
+        if line.startswith("TITLE:"):
+            title = line.replace("TITLE:", "").strip()
+        elif line.startswith("SECRET:"):
+            secret = line.replace("SECRET:", "").strip()
+        elif line.startswith("GOAL:"):
+            goal = line.replace("GOAL:", "").strip()
+            
+    return {"title": title, "secret": secret, "goal": goal}
+
 async def generate_grand_reveal_speech(ballots_summary: str) -> str:
     messages = [
         {"role": "user", "content": f"The guests have cast their final ballots:\n{ballots_summary}\n\nDeliver the grand finale monologue now."}
