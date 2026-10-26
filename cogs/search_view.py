@@ -9,7 +9,7 @@ ROOM_TO_NPC_INFO = {
     "kitchen": ("gable", "Mrs. Gable (Head Cook)", "Present by the roaring range", "Away tending to the linens in the East Wing"),
     "carriage": ("angus", "Old Angus (Groundskeeper)", "Present at the workbench cleaning motor parts", "Away checking the perimeter fences"),
     "radio": ("higgins", "Constable Higgins (Radio)", "Radio signal clear; listening over the airwaves", "Static squall interference; signal lost"),
-    "study": (None, None, None, None),
+    "study": ("abernathy", "Dr. Abernathy (Parish Physician)", "Present examining the crime scene with his medical bag", "Away consulting medical texts in the library"),
     "library": (None, None, None, None),
     "conservatory": (None, None, None, None),
     "dining": (None, None, None, None),

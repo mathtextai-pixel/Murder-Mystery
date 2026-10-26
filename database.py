@@ -87,7 +87,8 @@ def init_db():
         ("giles", "Giles", 1, "the-grand-parlor", "Attending to estate matters in the West Wing. Returns for evening tea at 5:00 PM."),
         ("gable", "Mrs. Gable", 1, "the-kitchen-and-pantry", "Tending to the linens in the East Wing. Back to bake evening scones at 5:00 PM."),
         ("angus", "Old Angus", 1, "the-carriage-house", "Out securing the perimeter fence against the squall. Returns to warm by the furnace at 7:00 PM."),
-        ("higgins", "Constable Higgins", 1, "the-radio-room", "Mainland frequency is choked with static. Radio window re-opens at 8:30 PM.")
+        ("higgins", "Constable Higgins", 1, "the-radio-room", "Mainland frequency is choked with static. Radio window re-opens at 8:30 PM."),
+        ("abernathy", "Dr. Abernathy", 1, "the-study", "Consulting medical reference texts in the library. Returns to the study shortly.")
     ]
     for npc in default_npcs:
         c.execute("""

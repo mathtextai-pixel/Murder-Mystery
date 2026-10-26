@@ -24,7 +24,8 @@ NPC_CHANNELS = {
     "gable": "the-kitchen-and-pantry",
     "angus": "the-carriage-house",
     "higgins": "the-radio-room",
-    "giles": "the-grand-parlor"
+    "giles": "the-grand-parlor",
+    "abernathy": "the-study"
 }
 
 NPC_MOVEMENT_NOTICES = {
@@ -43,6 +44,10 @@ NPC_MOVEMENT_NOTICES = {
     "giles": {
         "on": "*(Giles steps into the Grand Parlor with an impeccable bow, setting out fresh glasses on the silver tray).* ",
         "off": "*(Giles excuses himself to tend to estate records in the West Wing).* "
+    },
+    "abernathy": {
+        "on": "*(Dr. Abernathy unclasps his black leather physician's bag with a sharp click, adjusting his round wire spectacles to examine the crime scene).* ",
+        "off": "*(Dr. Abernathy snaps his medical bag shut and steps out to consult reference charts in the library).* "
     }
 }
 
@@ -355,8 +360,8 @@ class AdminCog(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def test_npc_shift_cmd(self, interaction: discord.Interaction, npc: str, on_shift: bool):
         npc = npc.lower()
-        if npc not in ("giles", "gable", "angus", "higgins"):
-            await interaction.response.send_message("NPC must be one of: giles, gable, angus, higgins.", ephemeral=True)
+        if npc not in ("giles", "gable", "angus", "higgins", "abernathy"):
+            await interaction.response.send_message("NPC must be one of: giles, gable, angus, higgins, abernathy.", ephemeral=True)
             return
 
         set_npc_shift(npc, on_shift)
