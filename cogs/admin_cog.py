@@ -443,5 +443,61 @@ class AdminCog(commands.Cog):
         await self._build_or_refresh_estate(interaction.guild)
         await interaction.followup.send("🔄 Ravenscroft Hall has been completely reset to Day 1 Pre-Murder. All records cleared and rooms refreshed.", ephemeral=True)
 
+    @app_commands.command(name="test_nightly_summary", description="Test Mode: Send the 10:30 PM personalized nightly briefing to all registered guests' DMs.")
+    @app_commands.default_permissions(administrator=True)
+    async def test_nightly_summary(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        count = await send_nightly_summaries_to_all(self.bot)
+        await interaction.followup.send(f"📬 Delivered personalized Nightly Dispatches to {count} registered guest(s) in DMs!", ephemeral=True)
+
+    @app_commands.command(name="test_send_rumor", description="Test Mode: Slip a secret folded note from Giles under a specific player's door.")
+    @app_commands.default_permissions(administrator=True)
+    async def test_send_rumor(self, interaction: discord.Interaction, guest: discord.Member, rumor_text: str):
+        try:
+            dm = await guest.create_dm()
+            rumor_embed = discord.Embed(
+                title="✉️ DISCREET NOTE FROM GILES",
+                description=f"*(A sealed parchment slip was slid beneath your bedchamber door)*:\n\n*\"{rumor_text}\"*\n\n— *Giles, in strictest confidence*",
+                color=0xD4AF37
+            )
+            await dm.send(embed=rumor_embed)
+            await interaction.response.send_message(f"✉️ Secret rumor successfully slipped to {guest.display_name}'s DMs!", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"⚠️ Failed to deliver DM to {guest.display_name}: {e}", ephemeral=True)
+
+async def send_nightly_summaries_to_all(bot: commands.Bot) -> int:
+    players = get_all_players()
+    day = get_current_day()
+    murder = is_murder_active()
+    status_headline = "Lord Julian was discovered dead at 11:42 PM; the house is on high alert." if murder else "Lord Julian is resting upstairs; dinner concluded peacefully."
+
+    delivered = 0
+    for p in players:
+        if p["interview_step"] < 4:
+            continue
+        try:
+            user = await bot.fetch_user(p["discord_id"])
+            if not user:
+                continue
+            dm = await user.create_dm()
+            clues = get_player_clues(p["discord_id"])
+            recent_clues_txt = "\n".join([f"• {c['clue_title']} ({c['room_id']})" for c in clues[:4]]) if clues else "No new clues uncovered today."
+
+            embed = discord.Embed(
+                title=f"🕯️ RAVENSCROFT HALL — NIGHTLY DISPATCH (DAY {day})",
+                description=f"*Discreet summary for: **{p['character_title']}***\n\n{status_headline}",
+                color=0x4A0E4E
+            )
+            embed.add_field(name="📜 Evidence in Your Pocket", value=recent_clues_txt, inline=False)
+            embed.add_field(name="🤫 Personal Reminder", value=p["secret_goal"] or "Keep your actions hidden from the other guests.", inline=False)
+            embed.add_field(name="🕯️ Morning Provisions", value="2 fresh candles will be placed on your breakfast tray tomorrow at 9:00 AM.", inline=False)
+            embed.set_footer(text="Sleep lightly, sir/madam. — Giles, Estate Steward")
+            await dm.send(embed=embed)
+            delivered += 1
+        except Exception as e:
+            logger.error(f"Failed to deliver nightly summary to {p['discord_id']}: {e}")
+
+    return delivered
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdminCog(bot))

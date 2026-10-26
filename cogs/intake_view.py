@@ -2,10 +2,11 @@ import discord
 import json
 import logging
 from database import (
-    get_player, create_or_get_player, update_player_interview, get_all_players
+    get_player, create_or_get_player, update_player_interview, get_all_players,
+    get_current_day, is_murder_active
 )
 from config import GUEST_ROLE_NAME
-from ollama_client import validate_and_respond_intake, generate_custom_player_dossier
+from ollama_client import validate_and_respond_intake, generate_custom_player_dossier, generate_giles_dm_consultation
 
 logger = logging.getLogger("IntakeView")
 
@@ -63,7 +64,16 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
         return
     
     player = get_player(message.author.id)
-    if not player or player["interview_step"] == 0 or player["interview_step"] >= 4:
+    if not player or player["interview_step"] == 0:
+        return
+
+    # If already registered, this is a private confidential consultation with Giles!
+    if player["interview_step"] >= 4:
+        async with message.channel.typing():
+            current_day = get_current_day()
+            murder_active = is_murder_active()
+            reply = await generate_giles_dm_consultation(player, message.content, current_day, murder_active)
+        await message.channel.send(f"**Giles (in confidence):** {reply}")
         return
 
     step = player["interview_step"]

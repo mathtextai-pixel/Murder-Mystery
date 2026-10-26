@@ -107,7 +107,7 @@ async def shift_angus_start():
             await chan.edit(topic="🏰 The Carriage House | Status: 🟢 Old Angus is present at the workbench.")
 
 async def shift_night_sleep():
-    """10:30 PM: Staff goes to sleep (all rooms unattended)"""
+    """10:30 PM: Staff goes to sleep (all rooms unattended) and Nightly Dispatches sent"""
     set_npc_shift("gable", False)
     set_npc_shift("angus", False)
     logger.info("Estate staff is now asleep. Rooms are unattended.")
@@ -120,6 +120,10 @@ async def shift_night_sleep():
         if c_chan:
             await c_chan.send("*(Old Angus puts out his lantern and locks up. The workshop is now quiet and unattended).*")
             await c_chan.edit(topic="🏰 The Carriage House | Status: 🔴 VACANT (Staff is asleep).")
+
+    # Deliver 10:30 PM personalized bedtime summaries in DMs!
+    from cogs.admin_cog import send_nightly_summaries_to_all
+    await send_nightly_summaries_to_all(bot)
 
 @bot.event
 async def on_ready():

@@ -110,6 +110,19 @@ class RoomSearchView(discord.ui.View):
             embed.set_footer(text=f"Only you can see this. | Candles remaining: {tokens_left}")
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
+            # Permanent Clue Card in DM
+            try:
+                dm = await interaction.user.create_dm()
+                dm_card = discord.Embed(
+                    title=f"📁 Case File: {title}",
+                    description=f"**Chamber:** {self.room_id.replace('-', ' ').title()}\n\n{text}",
+                    color=0xD4AF37
+                )
+                dm_card.set_footer(text="Saved permanently to your personal detective dossier.")
+                await dm.send(embed=dm_card)
+            except Exception:
+                pass
+
         elif roll < 0.85:
             # Lore clue
             clue = random.choice(room_data["lore"])
@@ -123,6 +136,19 @@ class RoomSearchView(discord.ui.View):
             )
             embed.set_footer(text=f"Only you can see this. | Candles remaining: {tokens_left}")
             await interaction.response.send_message(embed=embed, ephemeral=True)
+
+            # Permanent Clue Card in DM
+            try:
+                dm = await interaction.user.create_dm()
+                dm_card = discord.Embed(
+                    title=f"📜 Observation: {title}",
+                    description=f"**Chamber:** {self.room_id.replace('-', ' ').title()}\n\n{text}",
+                    color=0x708090
+                )
+                dm_card.set_footer(text="Saved permanently to your personal detective dossier.")
+                await dm.send(embed=dm_card)
+            except Exception:
+                pass
 
         else:
             # Empty / Atmosphere

@@ -113,6 +113,29 @@ async def generate_custom_player_dossier(player_name: str, q1: str, q2: str, q3:
             
     return {"title": title, "secret": secret, "goal": goal}
 
+async def generate_giles_dm_consultation(player: dict, user_message: str, current_day: int, murder_active: bool) -> str:
+    """
+    Generates a private 1-on-1 consultation response from Giles in DMs.
+    Giles knows the player's secrets and identity and speaks in complete confidence.
+    """
+    status_str = "Lord Julian was found dead; crime scene is active." if murder_active else "Lord Julian is still alive upstairs; dinner preparations underway."
+    system_prompt = (
+        "You are Giles, senior house steward of Ravenscroft Hall, speaking privately to a guest in their personal bedchamber (Discord DM).\n"
+        f"Guest Identity: {player['character_title']}\n"
+        f"Their Declared Item: {player['item_brought']}\n"
+        f"Their Confidential Secret: {player['dirty_secret']}\n"
+        f"Their Personal Objective: {player['secret_goal']}\n"
+        f"Current Estate State: Day {current_day}. {status_str}\n\n"
+        "Personality: Impeccably discreet, formal, loyal to Ravenscroft hospitality. You are speaking in total secrecy behind closed doors.\n"
+        "Rules:\n"
+        "- Speak in authentic Victorian British English.\n"
+        "- Give tactful, restrained advice without completely giving away the whole solution.\n"
+        "- Remind them discreetly to protect their secret if they are acting reckless.\n"
+        "- Keep response to 2-3 sentences."
+    )
+    messages = [{"role": "user", "content": user_message}]
+    return await chat_completion(messages, system_prompt=system_prompt)
+
 async def generate_grand_reveal_speech(ballots_summary: str) -> str:
     messages = [
         {"role": "user", "content": f"The guests have cast their final ballots:\n{ballots_summary}\n\nDeliver the grand finale monologue now."}
