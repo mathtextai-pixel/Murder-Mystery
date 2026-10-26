@@ -121,7 +121,11 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
 
         # Assign Guest Role across guilds
         for guild in bot.guilds:
-            member = guild.get_member(message.author.id)
+            try:
+                member = await guild.fetch_member(message.author.id)
+            except Exception:
+                member = guild.get_member(message.author.id)
+
             if member:
                 guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
                 if guest_role:

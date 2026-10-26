@@ -1,9 +1,47 @@
 import discord
 import random
 from database import (
-    get_player, consume_token, record_player_clue, get_player_clues
+    get_player, consume_token, record_player_clue, get_player_clues, get_npc_status
 )
-from data.game_data import ROOM_POOLS
+from data.game_data import ROOM_POOLS, ROOM_ATMOSPHERES
+
+ROOM_TO_NPC_INFO = {
+    "kitchen": ("gable", "Mrs. Gable (Head Cook)", "Present by the roaring range", "Away tending to the linens in the East Wing"),
+    "carriage": ("angus", "Old Angus (Groundskeeper)", "Present at the workbench cleaning motor parts", "Away checking the perimeter fences"),
+    "radio": ("higgins", "Constable Higgins (Radio)", "Radio signal clear; listening over the airwaves", "Static squall interference; signal lost"),
+    "study": (None, None, None, None),
+    "library": (None, None, None, None),
+    "conservatory": (None, None, None, None),
+    "dining": (None, None, None, None),
+    "cellar": ("angus", "Old Angus (Groundskeeper)", "Present tending the coal furnace", "Away out on the grounds"),
+    "bedroom": (None, None, None, None),
+    "attic": (None, None, None, None),
+    "crypt": (None, None, None, None),
+}
+
+def build_room_embed(room_id: str, room_name: str) -> discord.Embed:
+    description = ROOM_ATMOSPHERES.get(room_id, "A shadow-draped chamber in Ravenscroft Hall.")
+    
+    embed = discord.Embed(
+        title=f"🏰 {room_name}",
+        description=f"*{description}*",
+        color=0x2F4F4F
+    )
+    
+    npc_info = ROOM_TO_NPC_INFO.get(room_id)
+    if npc_info and npc_info[0]:
+        npc_id, name, on_txt, off_txt = npc_info
+        status = get_npc_status(npc_id)
+        if status and status["is_on_shift"]:
+            occupancy_str = f"🟢 **{name}** — *[{on_txt}]*"
+        else:
+            occupancy_str = f"🔴 **VACANT** — *[{off_txt}]*"
+    else:
+        occupancy_str = "⚪ **UNATTENDED** — *Quiet; only the sound of rain.*"
+
+    embed.add_field(name="👤 CURRENT OCCUPANCY", value=occupancy_str, inline=False)
+    embed.set_footer(text="Tap below to light a candle and search this chamber for evidence.")
+    return embed
 
 class RoomSearchView(discord.ui.View):
     def __init__(self, room_id: str):
@@ -25,7 +63,8 @@ class RoomSearchView(discord.ui.View):
         if player["tokens_remaining"] <= 0:
             await interaction.response.send_message(
                 "🕯️ **Your candles have burned down to the wick.**\n"
-                "You have no search candles remaining today. Giles will replenish them tomorrow morning at 9:00 AM.",
+                "You have no search candles remaining today. Giles will replenish them tomorrow morning at 9:00 AM.\n"
+                "*(Hint: Interrogating an on-shift staff member can earn you a bonus candle!)*",
                 ephemeral=True
             )
             return

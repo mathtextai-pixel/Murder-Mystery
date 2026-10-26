@@ -32,9 +32,14 @@ def init_db():
         tokens_remaining INTEGER DEFAULT 2,
         consecutive_empty INTEGER DEFAULT 0,
         interview_step INTEGER DEFAULT 0,
-        intake_data TEXT DEFAULT '{}'
+        intake_data TEXT DEFAULT '{}',
+        daily_bonus_day INTEGER DEFAULT 0
     )
     """)
+    try:
+        c.execute("ALTER TABLE players ADD COLUMN daily_bonus_day INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass # Column already exists
     
     # 3. Discovered Clues (Per-player discovery history)
     c.execute("""
@@ -175,6 +180,30 @@ def refill_player_tokens(discord_id: int, count=DEFAULT_TOKENS_PER_DAY):
     c.execute("UPDATE players SET tokens_remaining = ? WHERE discord_id = ?", (count, discord_id))
     conn.commit()
     conn.close()
+
+def check_and_award_interrogation_bonus(discord_id: int, current_day: int) -> bool:
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT tokens_remaining, daily_bonus_day FROM players WHERE discord_id = ?", (discord_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return False
+    
+    last_bonus_day = row["daily_bonus_day"] or 0
+    if last_bonus_day < current_day:
+        c.execute("""
+        UPDATE players 
+        SET tokens_remaining = tokens_remaining + 1,
+            daily_bonus_day = ?
+        WHERE discord_id = ?
+        """, (current_day, discord_id))
+        conn.commit()
+        conn.close()
+        return True
+    
+    conn.close()
+    return False
 
 def record_player_clue(discord_id: int, room_id: str, title: str, text: str, is_major: bool):
     conn = get_connection()

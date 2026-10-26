@@ -11,13 +11,40 @@ from database import (
     get_npc_status, reset_entire_game, get_all_ballots, get_all_players,
     get_player, get_player_clues
 )
-from data.game_data import DISPATCHES, CANON_SOLUTION
+from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION
 from cogs.intake_view import BeginRegistrationView
-from cogs.search_view import RoomSearchView
+from cogs.search_view import RoomSearchView, build_room_embed
 from cogs.inquest_view import InquestView
+from cogs.poll_view import ParlorPollView
 from ollama_client import generate_grand_reveal_speech
 
 logger = logging.getLogger("AdminCog")
+
+NPC_CHANNELS = {
+    "gable": "the-kitchen-and-pantry",
+    "angus": "the-carriage-house",
+    "higgins": "the-radio-room",
+    "giles": "the-grand-parlor"
+}
+
+NPC_MOVEMENT_NOTICES = {
+    "gable": {
+        "on": "*(The pantry door creaks open. Mrs. Gable bustles inside, shaking out her wet apron and lighting the hearth stove. She is now in the kitchen).* ",
+        "off": "*(Mrs. Gable wipes her hands on her apron, pulls on her wool shawl, and heads upstairs to turn down the bedchambers. The kitchen is now quiet and unattended).* "
+    },
+    "angus": {
+        "on": "*(Heavy muddy boots echo on the floor. Old Angus stomps into the workshop, shaking off the rain and lighting his pipe. He is now present).* ",
+        "off": "*(Old Angus knocks the ash from his pipe, grabs his oilcloth coat, and heads out into the squall to inspect the fences. The workshop is now empty).* "
+    },
+    "higgins": {
+        "on": "*(The radio vacuum tubes hum to life with a crackle of static. 'Constable Higgins here... frequency open.' Constable Higgins is on the radio).* ",
+        "off": "*(A burst of howling maritime static drowns the frequency, followed by silence. The mainland radio link is dead for now).* "
+    },
+    "giles": {
+        "on": "*(Giles steps into the Grand Parlor with an impeccable bow, setting out fresh glasses on the silver tray).* ",
+        "off": "*(Giles excuses himself to tend to estate records in the West Wing).* "
+    }
+}
 
 class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -73,7 +100,11 @@ class AdminCog(commands.Cog):
             overwrites = {
                 everyone_role: discord.PermissionOverwrite(view_channel=True, send_messages=False),
             }
-            gates_channel = await category.create_text_channel(GATES_CHANNEL_NAME, overwrites=overwrites)
+            gates_channel = await category.create_text_channel(
+                GATES_CHANNEL_NAME, 
+                overwrites=overwrites,
+                topic="Register your arrival with Giles the Butler before entering the estate."
+            )
             embed = discord.Embed(
                 title="🏰 Welcome to Ravenscroft Hall",
                 description=(
@@ -91,7 +122,11 @@ class AdminCog(commands.Cog):
             overwrites = {
                 everyone_role: discord.PermissionOverwrite(view_channel=True, send_messages=False),
             }
-            bulletin_channel = await category.create_text_channel(BULLETIN_CHANNEL_NAME, overwrites=overwrites)
+            bulletin_channel = await category.create_text_channel(
+                BULLETIN_CHANNEL_NAME, 
+                overwrites=overwrites,
+                topic="The official daily gazette of Ravenscroft Hall. Dispatches published at 9:00 AM."
+            )
             first_dispatch = DISPATCHES[1]
             dispatch_embed = discord.Embed(
                 title=f"📜 {first_dispatch['headline']}",
@@ -107,10 +142,19 @@ class AdminCog(commands.Cog):
                 everyone_role: discord.PermissionOverwrite(view_channel=False),
                 guest_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
-            parlor_channel = await category.create_text_channel(PARLOR_CHANNEL_NAME, overwrites=overwrites)
+            parlor_channel = await category.create_text_channel(
+                PARLOR_CHANNEL_NAME, 
+                overwrites=overwrites,
+                topic="🔥 The Grand Parlor Hearth. Daily estate polls and guest debates."
+            )
             await parlor_channel.send(
                 "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Giles here."
             )
+            # Post Day 1 Parlor Poll
+            p1 = PARLOR_POLLS.get(1)
+            if p1:
+                poll_embed = discord.Embed(title=p1["question"], description="Select your suspicion below:", color=0x800000)
+                await parlor_channel.send(embed=poll_embed, view=ParlorPollView(1, p1["options"]))
 
         # 6. Create Act 1 Rooms (Open Day 1)
         for room in ACT_1_ROOMS:
@@ -120,12 +164,12 @@ class AdminCog(commands.Cog):
                     everyone_role: discord.PermissionOverwrite(view_channel=False),
                     guest_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
                 }
-                channel = await category.create_text_channel(room["channel"], overwrites=overwrites)
-                embed = discord.Embed(
-                    title=f"🏰 {room['name']}",
-                    description=f"You step inside {room['name']}. Tap below to spend a candle and search for evidence.",
-                    color=0x708090
+                channel = await category.create_text_channel(
+                    room["channel"], 
+                    overwrites=overwrites,
+                    topic=f"🏰 {room['name']} | Status: Unlocked for inquiry."
                 )
+                embed = build_room_embed(room["id"], room["name"])
                 await channel.send(embed=embed, view=RoomSearchView(room["id"]))
 
         # 7. Create Act 2 & 3 Rooms (Hidden until unlocked)
@@ -137,12 +181,12 @@ class AdminCog(commands.Cog):
                     everyone_role: discord.PermissionOverwrite(view_channel=False),
                     guest_role: discord.PermissionOverwrite(view_channel=False)
                 }
-                channel = await category.create_text_channel(room["channel"], overwrites=overwrites)
-                embed = discord.Embed(
-                    title=f"🏰 {room['name']}",
-                    description=f"You step inside {room['name']}. Tap below to spend a candle and search for evidence.",
-                    color=0x708090
+                channel = await category.create_text_channel(
+                    room["channel"], 
+                    overwrites=overwrites,
+                    topic=f"🏰 {room['name']} | Status: Sealed until authorized by the estate."
                 )
+                embed = build_room_embed(room["id"], room["name"])
                 await channel.send(embed=embed, view=RoomSearchView(room["id"]))
 
         # 8. Create Voice Rooms
@@ -161,7 +205,7 @@ class AdminCog(commands.Cog):
                 }
                 await category.create_voice_channel(vname, user_limit=cap, overwrites=overwrites)
 
-        await interaction.followup.send("✅ Ravenscroft Hall has been built! Roles, categories, and rooms are active.", ephemeral=True)
+        await interaction.followup.send("✅ Ravenscroft Hall has been built! Rich room descriptions, occupancy badges, and estate polls are active.", ephemeral=True)
 
     @app_commands.command(name="test_advance_day", description="Test Mode: Advance to any day (1-14) instantly.")
     @app_commands.default_permissions(administrator=True)
@@ -178,10 +222,11 @@ class AdminCog(commands.Cog):
         category = discord.utils.get(guild.categories, name=ESTATE_CATEGORY_NAME)
         guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
         bulletin = discord.utils.get(guild.text_channels, name=BULLETIN_CHANNEL_NAME)
+        parlor = discord.utils.get(guild.text_channels, name=PARLOR_CHANNEL_NAME)
 
         dispatch_info = DISPATCHES.get(day, DISPATCHES[1])
 
-        # Post dispatch
+        # 1. Post morning dispatch in Bulletin
         if bulletin:
             embed = discord.Embed(
                 title=f"📜 DAY {day}: {dispatch_info['headline']}",
@@ -191,34 +236,45 @@ class AdminCog(commands.Cog):
             embed.set_footer(text="🕯️ All guests have had their 2 candles replenished.")
             await bulletin.send(embed=embed)
 
-        # Handle unlocks
+        # 2. Post Daily Parlor Poll in Grand Parlor
+        if parlor:
+            p_data = PARLOR_POLLS.get(day)
+            if p_data:
+                poll_embed = discord.Embed(
+                    title=f"🗳️ DAY {day} PARLOR INQUIRY",
+                    description=f"**{p_data['question']}**\n\n*Cast your vote below to state your position to the room:*",
+                    color=0x800000
+                )
+                await parlor.send(embed=poll_embed, view=ParlorPollView(day, p_data["options"]))
+
+        # 3. Handle unlocks
         if day >= 5 and category and guest_role:
             for room in ACT_2_ROOMS:
                 chan = discord.utils.get(category.text_channels, name=room["channel"])
                 if chan:
                     await chan.set_permissions(guest_role, view_channel=True, send_messages=True)
+                    await chan.edit(topic=f"🏰 {room['name']} | Status: 🔓 UNLOCKED FOR INQUIRY")
 
         if day >= 9 and category and guest_role:
             for room in ACT_3_ROOMS:
                 chan = discord.utils.get(category.text_channels, name=room["channel"])
                 if chan:
                     await chan.set_permissions(guest_role, view_channel=True, send_messages=True)
+                    await chan.edit(topic=f"🏰 {room['name']} | Status: 🔓 UNLOCKED FOR INQUIRY")
 
-        # Day 14 Inquest button
-        if day == 14 and category:
-            parlor = discord.utils.get(category.text_channels, name=PARLOR_CHANNEL_NAME)
-            if parlor:
-                inquest_embed = discord.Embed(
-                    title="⚖️ THE GRAND INQUEST HAS BEGUN",
-                    description=(
-                        "All guests are summoned to the Grand Parlor.\n"
-                        "Review your evidence and click below to submit your official accusation ballot!"
-                    ),
-                    color=0x800000
-                )
-                await parlor.send(embed=inquest_embed, view=InquestView())
+        # 4. Day 14 Inquest button
+        if day == 14 and parlor:
+            inquest_embed = discord.Embed(
+                title="⚖️ THE GRAND INQUEST HAS BEGUN",
+                description=(
+                    "All guests are summoned to the Grand Parlor.\n"
+                    "Review your evidence and click below to submit your official accusation ballot!"
+                ),
+                color=0x800000
+            )
+            await parlor.send(embed=inquest_embed, view=InquestView())
 
-        await interaction.followup.send(f"✅ Advanced to Day {day}. Dispatches posted and candles refilled.", ephemeral=True)
+        await interaction.followup.send(f"✅ Advanced to Day {day}. Dispatches, Daily Poll, and candle refills complete.", ephemeral=True)
 
     @app_commands.command(name="test_refill", description="Test Mode: Refill 2 candles for all guests immediately.")
     @app_commands.default_permissions(administrator=True)
@@ -236,6 +292,20 @@ class AdminCog(commands.Cog):
 
         set_npc_shift(npc, on_shift)
         status_text = "ON SHIFT (Available)" if on_shift else "OFF SHIFT (Away message)"
+
+        # Post in-character movement announcement
+        guild = interaction.guild
+        chan_name = NPC_CHANNELS.get(npc)
+        if chan_name:
+            chan = discord.utils.get(guild.text_channels, name=chan_name)
+            if chan:
+                notice_text = NPC_MOVEMENT_NOTICES.get(npc, {}).get("on" if on_shift else "off", "")
+                if notice_text:
+                    await chan.send(notice_text)
+                # Update channel topic
+                topic_status = "🟢 PRESENT & ACTIVE" if on_shift else "🔴 AWAY ON DUTIES"
+                await chan.edit(topic=f"🏰 {chan_name.replace('-', ' ').title()} | Status: {topic_status}")
+
         await interaction.response.send_message(f"✅ Set {npc.capitalize()} to {status_text}.", ephemeral=True)
 
     @app_commands.command(name="test_trigger_reveal", description="Test Mode: Tally ballots and trigger Hermes 3's Grand Inquest reveal monologue.")

@@ -320,3 +320,124 @@ DISPATCHES = {
         "unlocks": []
     }
 }
+
+# Rich Evocative Atmospheric Descriptions for Room Headers
+ROOM_ATMOSPHERES = {
+    "study": (
+        "The air in the study is thick with the scent of calfskin ledgers, cold woodsmoke, and stale Turkish tobacco. "
+        "Outside, the Autumn Equinox gale batters the coastal cliffs, sending sheets of rain rattling against the tall diamond-paned bay windows. "
+        "A dying fire smolders in the black marble hearth, casting long, wavering shadows across Lord Julian’s colossal mahogany desk. "
+        "The high-backed leather chair sits pushed slightly askew, as though vacated in haste. An antique grandfather clock ticks with a heavy, hollow resonance."
+    ),
+    "library": (
+        "Towering floor-to-ceiling oak bookshelves swallow nearly all sound, creating a cavernous, scholarly hush. "
+        "A rolling brass ladder leans against the upper balcony, where hundreds of leather-bound folios recline under centuries of dust. "
+        "The scent of dry parchment, melted beeswax, and old leather hangs heavy. Rain lashes against the leaded stained-glass skylight far above, "
+        "and a green-shaded banker's lamp casts an uneasy emerald glow over a sprawling reading table covered in open estate blueprints."
+    ),
+    "conservatory": (
+        "A humid, overgrown jungle under vaulted Victorian iron and glass. Overgrown ferns and rare night-blooming orchids drape over rusted benches. "
+        "Condensation drips steadily from the high glass dome, echoing like solitary footsteps among the terracotta planters. "
+        "The smell of damp soil and crushed vegetation is overwhelming. Near the far glass terrace door, a cold draft cuts through the moisture—the bolt has been forced, and wet leaves lie scattered across the tile."
+    ),
+    "dining": (
+        "A twenty-foot banquet table of polished black walnut dominates the hall, surrounded by eight high-backed chairs standing like silent sentinels. "
+        "Silver candelabras hold guttering tapers, shedding pools of amber light across half-empty crystal goblets and picked-over silver platters of cold roast beef. "
+        "A faint aroma of spiced port and bitter almonds lingers over the sideboard. The grand portrait of Lord Julian looms at the head of the room, his painted eyes catching every flicker of candle flame."
+    ),
+    "cellar": (
+        "Subterranean chill immediately seeps through your clothing. Massive brick arches support the estate's foundations, flanked by iron racks of dust-coated vintage wines. "
+        "In the far alcove, the coal furnace glows a dull, threatening red, breathing hot iron air and low mechanical groans into the gloom. "
+        "Water drips rhythmically from a corroded copper pipe into a stone drain. Near the north wall, behind an empty vintage bin, a strange, persistent draft breathes from a seam in the masonry."
+    ),
+    "bedroom": (
+        "A heavy four-poster mahogany bed with deep burgundy velvet drapes dominates Julian's private sanctum. "
+        "One rain-slicked window shutter has been left unlatched, banging rhythmically against the stone sill as freezing coastal spray mists the oriental rug. "
+        "On the bedside nightstand, pill vials and a cold cup of chamomile tea sit beside an open drawer. The large ornate vanity mirror hangs slightly crooked, revealing the dark rectangular void of an open wall safe behind it."
+    ),
+    "kitchen": (
+        "A sprawling flagstone chamber bathed in the warm, flickering radiance of a roaring cast-iron cooking range. "
+        "Rows of polished copper saucepans gleam against the whitewashed walls, alongside bundles of drying rosemary, thyme, and lavender. "
+        "The comforting aroma of fresh milk bread and simmering broth cannot entirely conceal a subtle underlying tension: by the service larder, the heavy wooden dumbwaiter shaft creaks faintly inside the stone chimney breast, as if carrying weight."
+    ),
+    "attic": (
+        "Sprawling directly beneath the manor's slate roof, this forgotten labyrinth is choked with decades of cobwebbed steamer trunks, discarded portrait frames, and shrouded furniture. "
+        "The deafening, hypnotic grinding and clicking of the estate clockwork mechanism echoes from the wooden tower shaft above. "
+        "Storm wind howls through cracked wooden louvers, stirring thick dust motes. In the far shadows behind the water cistern, a makeshift cot of fresh straw and empty food tins suggests an uninvited guest."
+    ),
+    "carriage": (
+        "A cavernous workshop smelling sharply of motor spirit, grease, and rain-soaked cedar. "
+        "Rain hammers on the corrugated tin roof like machine-gun fire. Lord Julian's pristine black Rolls-Royce sits in the center of the gravel floor, its hood unlatched and engine cables hanging loose. "
+        "On the heavy timber workbench, oily mechanic tools lie scattered beside an open lantern, surrounded by fresh copper wire shavings."
+    ),
+    "crypt": (
+        "Ancient, freezing stone walls carved directly into the seaside cliffside beneath Ravenscroft Hall. "
+        "Your breath blooms in thick white clouds against the pitch-black subterranean chill. Elaborate stone sarcophagi of the Ravenscroft lineage rest in solemn tiers, their sculpted effigies watching with eroded limestone eyes. "
+        "The scent of ancient dust, salt sea air, and fresh candle wax fills the vault. Propped against an empty stone burial niche rests a heavy iron bar."
+    ),
+    "radio": (
+        "A cramped, wood-paneled room tucked inside the highest eaves of the estate tower. "
+        "A high-frequency maritime radio receiver hums with amber vacuum-tube warmth, filling the room with the dry static hiss of Atlantic storm frequencies. "
+        "A brass telegraph key sits beside stacks of signal logbooks and weather barometer maps. Every few minutes, through the sea noise, a voice crackles faintly across the airwaves: 'Constable Higgins here... do you read me...?'"
+    )
+}
+
+# The 14 Daily Parlor Polls (Debate Igniters)
+PARLOR_POLLS = {
+    1: {
+        "question": "🏛️ ESTATE POLL: Upon arriving at Ravenscroft Hall, which guest appeared most uneasy?",
+        "options": ["The Estranged Heir", "The Family Physician", "The Estate Trustee", "The Relic Appraiser", "The Private Archivist", "The Socialite", "The Botanist", "The Chauffeur"]
+    },
+    2: {
+        "question": "⚖️ ESTATE POLL: Whose whereabouts between 10:00 PM and midnight appear the most suspicious?",
+        "options": ["Those claiming to be asleep", "Those seen near the terrace", "Those lingering in the library", "Those wandering the domestic quarters"]
+    },
+    3: {
+        "question": "📜 ESTATE POLL: A will document was tampered with. Who had the strongest motive to alter it?",
+        "options": ["The Disinherited Heir", "The Estate Lawyer", "The Blackmailed Archivist", "The Indebted Socialite"]
+    },
+    4: {
+        "question": "🧳 ESTATE POLL: Should the guests consent to an immediate mutual search of all traveling luggage?",
+        "options": ["Yes — Complete transparency now!", "No — An outrageous violation of privacy!", "Only under Giles's supervision", "Only if the Doctor is searched first"]
+    },
+    5: {
+        "question": "🚪 ESTATE POLL: The Wine Cellar & Domestic Wing are now unlocked. Where should our inquiry focus first?",
+        "options": ["The Coal Furnace in the Cellar", "Julian's Bedside Safe", "The Kitchen Dumbwaiter", "The Telephone Wires"]
+    },
+    6: {
+        "question": "🧪 ESTATE POLL: Traces of sedative and toxin have been found. Which suspect is lying about their knowledge?",
+        "options": ["The Family Physician (Laudanum)", "The Botanist (Foxglove)", "Mrs. Gable (The Kitchen Tea)", "Neither — It was an outside poison"]
+    },
+    7: {
+        "question": "🔥 MIDWAY POLL: If you had to name a prime suspect right now, who would you lock in the cellar?",
+        "options": ["The Heir", "The Doctor", "The Lawyer", "The Appraiser", "The Archivist", "The Socialite", "The Botanist", "The Chauffeur"]
+    },
+    8: {
+        "question": "🩸 ESTATE POLL: Autopsy reveals Julian died of blunt head trauma, not the fall. Was this premeditated murder?",
+        "options": ["Cold premeditated murder", "A panicked crime of passion", "An accidental struggle gone wrong", "The work of a ruthless intruder"]
+    },
+    9: {
+        "question": "🗝️ ESTATE POLL: The Crypt and Clocktower are open. What secret will prove most damning?",
+        "options": ["The Phantom in the Attic", "The Missing Iron Poker", "The Stolen Blackwood Emerald", "The Secret Wall Passages"]
+    },
+    10: {
+        "question": "🍞 ESTATE POLL: Tins of food have been stolen from the larder for weeks. Does someone live in the walls?",
+        "options": ["Yes — An uninvited squatter!", "No — One of the guests is hoarding food", "Mrs. Gable is miscounting her stores", "It is an elaborate hoax"]
+    },
+    11: {
+        "question": "👤 ESTATE POLL: Mainland records name Barnaby Finch. Is the disgraced former steward among us?",
+        "options": ["He is hiding in the secret tunnels", "He has an accomplice among the 8 guests", "He already fled the island", "He is seeking total vengeance"]
+    },
+    12: {
+        "question": "🕰️ ESTATE POLL: The grandfather clock conceals a hidden panel. Who discovered it first?",
+        "options": ["The Chauffeur / Veteran", "The Antiquities Appraiser", "Barnaby Finch himself", "Giles the Butler"]
+    },
+    13: {
+        "question": "📋 INQUEST PREP: With the inquest tomorrow, how confident are you in your final theory?",
+        "options": ["100% — I know killer, weapon, and motive", "Fairly confident — A few details hazy", "Suspicious of two people still", "Completely baffled!"]
+    },
+    14: {
+        "question": "🏆 FINAL CONSENSUS: Who will be crowned Master Sleuth of Ravenscroft tonight?",
+        "options": ["The sharpest detective among us", "The one who kept their secret best", "Nobody — Barnaby outsmarted us all!", "Giles the Butler"]
+    }
+}
