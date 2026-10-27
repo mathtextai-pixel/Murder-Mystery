@@ -3,24 +3,58 @@ import random
 from database import (
     get_player, consume_token, record_player_clue, get_player_clues, get_npc_status, is_murder_active
 )
-from data.game_data import ROOM_POOLS, ROOM_ATMOSPHERES
+from data.game_data import ROOM_POOLS, ROOM_ATMOSPHERES, PRE_MURDER_ROOM_ATMOSPHERES
 
 ROOM_TO_NPC_INFO = {
-    "kitchen": ("gable", "Mrs. Gable (Head Cook)", "Present by the roaring range", "Away tending to the linens in the East Wing"),
-    "carriage": ("angus", "Old Angus (Groundskeeper)", "Present at the workbench cleaning motor parts", "Away checking the perimeter fences"),
-    "radio": ("higgins", "Constable Higgins (Radio)", "Radio signal clear; listening over the airwaves", "Static squall interference; signal lost"),
-    "study": ("abernathy", "Dr. Abernathy (Parish Physician)", "Present examining the crime scene with his medical bag", "Away consulting medical texts in the library"),
-    "library": (None, None, None, None),
-    "conservatory": (None, None, None, None),
-    "dining": (None, None, None, None),
-    "cellar": ("angus", "Old Angus (Groundskeeper)", "Present tending the coal furnace", "Away out on the grounds"),
-    "bedroom": (None, None, None, None),
-    "attic": (None, None, None, None),
-    "crypt": (None, None, None, None),
+    "kitchen": (
+        "gable",
+        "Mrs. Gable (Head Cook)",
+        "Present preparing the Solstice dinner feast",
+        "Present by the roaring range",
+        "Away tending to the linens in the East Wing"
+    ),
+    "carriage": (
+        "angus",
+        "Old Angus (Groundskeeper)",
+        "Present parking guest carriages out of the squall",
+        "Present at the workbench cleaning motor parts",
+        "Away checking the perimeter fences"
+    ),
+    "radio": (
+        "higgins",
+        "Constable Higgins (Radio)",
+        "Broadcasting routine coastal storm warnings",
+        "Radio signal clear; listening over the airwaves",
+        "Static squall interference; signal lost"
+    ),
+    "study": (
+        "abernathy",
+        "Dr. Abernathy (Parish Physician)",
+        "Present reviewing Lord Julian's medical charts by the hearth",
+        "Present examining the crime scene with his medical bag",
+        "Away consulting medical texts in the library"
+    ),
+    "library": (None, None, None, None, None),
+    "conservatory": (None, None, None, None, None),
+    "dining": (None, None, None, None, None),
+    "cellar": (
+        "angus",
+        "Old Angus (Groundskeeper)",
+        "Present stoking the coal furnace for the evening",
+        "Present tending the coal furnace",
+        "Away out on the grounds"
+    ),
+    "bedroom": (None, None, None, None, None),
+    "attic": (None, None, None, None, None),
+    "crypt": (None, None, None, None, None),
 }
 
 def build_room_embed(room_id: str, room_name: str) -> discord.Embed:
-    description = ROOM_ATMOSPHERES.get(room_id, "A shadow-draped chamber in Ravenscroft Hall.")
+    murder_active = is_murder_active()
+    if not murder_active and room_id in PRE_MURDER_ROOM_ATMOSPHERES:
+        description = PRE_MURDER_ROOM_ATMOSPHERES[room_id]
+    else:
+        description = ROOM_ATMOSPHERES.get(room_id, "A shadow-draped chamber in Ravenscroft Hall.")
     
     embed = discord.Embed(
         title=f"🏰 {room_name}",
@@ -30,7 +64,8 @@ def build_room_embed(room_id: str, room_name: str) -> discord.Embed:
     
     npc_info = ROOM_TO_NPC_INFO.get(room_id)
     if npc_info and npc_info[0]:
-        npc_id, name, on_txt, off_txt = npc_info
+        npc_id, name, pre_murder_on_txt, post_murder_on_txt, off_txt = npc_info
+        on_txt = post_murder_on_txt if murder_active else pre_murder_on_txt
         status = get_npc_status(npc_id)
         if status and status["is_on_shift"]:
             occupancy_str = f"🟢 **{name}** — *[{on_txt}]*"
@@ -40,7 +75,10 @@ def build_room_embed(room_id: str, room_name: str) -> discord.Embed:
         occupancy_str = "⚪ **UNATTENDED** — *Quiet; only the sound of rain.*"
 
     embed.add_field(name="👤 CURRENT OCCUPANCY", value=occupancy_str, inline=False)
-    embed.set_footer(text="Tap below to light a candle and search this chamber for evidence.")
+    if murder_active:
+        embed.set_footer(text="Tap below to light a candle and search this chamber for evidence.")
+    else:
+        embed.set_footer(text="Lord Julian is resting upstairs before dinner. Room searches are currently locked.")
     return embed
 
 class RoomSearchView(discord.ui.View):

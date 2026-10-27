@@ -9,10 +9,10 @@ from config import (
     BULLETIN_CHANNEL_NAME, PARLOR_CHANNEL_NAME, ESTATE_CATEGORY_NAME, GUEST_ROLE_NAME
 )
 from database import (
-    init_db, get_current_day, set_current_day, refill_all_tokens, set_npc_shift, set_murder_active
+    init_db, get_current_day, set_current_day, refill_all_tokens, set_npc_shift, set_murder_active, is_murder_active
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, get_parlor_poll
-from cogs.intake_view import BeginRegistrationView, handle_dm_intake
+from cogs.intake_view import BeginRegistrationView, DossierConfirmationView, handle_dm_intake
 from cogs.search_view import RoomSearchView
 from cogs.inquest_view import InquestView
 from cogs.poll_view import ParlorPollView
@@ -32,10 +32,12 @@ bot = create_bot(enable_message_content=True)
 
 # Scheduled Daily Dispatch at 9:00 AM
 async def scheduled_morning_dispatch():
+    from cogs.admin_cog import refresh_all_room_embeds
     day = get_current_day() + 1
     if day > 14:
         return
     
+    was_murder_active = is_murder_active()
     set_current_day(day)
     if day >= 2:
         set_murder_active(True)
@@ -48,6 +50,21 @@ async def scheduled_morning_dispatch():
         category = discord.utils.get(guild.categories, name=ESTATE_CATEGORY_NAME)
         guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
         
+        # 0. If Day 2 and murder was not yet active, announce the 11:42 PM murder discovery in Parlor!
+        if day == 2 and not was_murder_active and parlor:
+            blackout_embed = discord.Embed(
+                title="⚡ MIDNIGHT BLACKOUT — 11:42 PM",
+                description=(
+                    "*(A violent thunderclap shattered the leaded glass windows during the night! The grand chandeliers flickered violently and died into pitch darkness. "
+                    "A muffled cry and a sickening crash echoed from the top of the Grand Staircase as the grandfather clock struck 11:42 PM).* \n\n"
+                    "**Giles:** *'Great heavens above! Remain where you are, ladies and gentlemen! Lord Julian... the master has fallen at the base of the stairs! "
+                    "He is gone! The estate gates are locked from the outside! No one leaves Ravenscroft Hall!'*"
+                ),
+                color=0x800000
+            )
+            blackout_embed.set_footer(text="🕯️ The crime scene is now active. All guests have received 2 search candles.")
+            await parlor.send(embed=blackout_embed)
+
         # 1. Post Dispatch in Bulletin
         dispatch_info = DISPATCHES.get(day, DISPATCHES[1])
         if bulletin:
@@ -85,9 +102,13 @@ async def scheduled_morning_dispatch():
                     await chan.set_permissions(guest_role, view_channel=True, send_messages=True)
                     await chan.edit(topic=f"🏰 {room['name']} | Status: 🔓 UNLOCKED FOR INQUIRY")
 
+        # 4. Refresh room header embeds in place
+        await refresh_all_room_embeds(guild, bot.user)
+
 # Scheduled NPC Evening Shifts
 async def shift_evening_start():
     """5:00 PM: Mrs. Gable arrives in Kitchen"""
+    from cogs.admin_cog import refresh_all_room_embeds
     set_npc_shift("gable", True)
     logger.info("Mrs. Gable is now ON SHIFT in the Kitchen.")
     for guild in bot.guilds:
@@ -95,9 +116,11 @@ async def shift_evening_start():
         if chan:
             await chan.send("*(The pantry door creaks open. Mrs. Gable bustles inside, lighting the range stove. She is now present in the kitchen).*")
             await chan.edit(topic="🏰 The Kitchen & Pantry | Status: 🟢 Mrs. Gable is present by the range.")
+        await refresh_all_room_embeds(guild, bot.user)
 
 async def shift_angus_start():
     """7:00 PM: Angus arrives in Furnace / Cellar"""
+    from cogs.admin_cog import refresh_all_room_embeds
     set_npc_shift("angus", True)
     logger.info("Angus is now ON SHIFT in the Cellar.")
     for guild in bot.guilds:
@@ -105,9 +128,11 @@ async def shift_angus_start():
         if chan:
             await chan.send("*(Heavy muddy boots stomp inside. Old Angus enters, drying his coat by the fire. He is now present).*")
             await chan.edit(topic="🏰 The Carriage House | Status: 🟢 Old Angus is present at the workbench.")
+        await refresh_all_room_embeds(guild, bot.user)
 
 async def shift_night_sleep():
     """10:30 PM: Staff goes to sleep (all rooms unattended) and Nightly Dispatches sent"""
+    from cogs.admin_cog import send_nightly_summaries_to_all, refresh_all_room_embeds
     set_npc_shift("gable", False)
     set_npc_shift("angus", False)
     logger.info("Estate staff is now asleep. Rooms are unattended.")
@@ -120,9 +145,9 @@ async def shift_night_sleep():
         if c_chan:
             await c_chan.send("*(Old Angus puts out his lantern and locks up. The workshop is now quiet and unattended).*")
             await c_chan.edit(topic="🏰 The Carriage House | Status: 🔴 VACANT (Staff is asleep).")
+        await refresh_all_room_embeds(guild, bot.user)
 
     # Deliver 10:30 PM personalized bedtime summaries in DMs!
-    from cogs.admin_cog import send_nightly_summaries_to_all
     await send_nightly_summaries_to_all(bot)
 
 @bot.event
@@ -133,15 +158,18 @@ async def on_ready():
 
     # Register Persistent Views
     bot.add_view(BeginRegistrationView())
+    bot.add_view(DossierConfirmationView())
     bot.add_view(InquestView())
     all_rooms = ACT_1_ROOMS + ACT_2_ROOMS + ACT_3_ROOMS
     for room in all_rooms:
         bot.add_view(RoomSearchView(room["id"]))
 
-    # Load Cogs
+    # Load Cogs safely (avoid duplicate load on gateway reconnects)
     try:
-        await bot.load_extension("cogs.admin_cog")
-        await bot.load_extension("cogs.npc_cog")
+        if "cogs.admin_cog" not in bot.extensions:
+            await bot.load_extension("cogs.admin_cog")
+        if "cogs.npc_cog" not in bot.extensions:
+            await bot.load_extension("cogs.npc_cog")
     except Exception as e:
         logger.error(f"Error loading cogs: {e}")
 

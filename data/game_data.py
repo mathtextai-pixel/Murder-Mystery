@@ -321,13 +321,35 @@ DISPATCHES = {
     }
 }
 
-# Rich Evocative Atmospheric Descriptions for Room Headers
+# Pre-Murder Room Atmospheres (Day 1 - Julian is still alive upstairs before dinner)
+PRE_MURDER_ROOM_ATMOSPHERES = {
+    "study": (
+        "A warm cedar fire crackles steadily in the black marble hearth, filling Lord Julian's study with the rich scent of calfskin ledgers and fine Turkish tobacco. "
+        "Outside, the Solstice squall is just beginning to lash the coastal cliffs, rattling the tall diamond-paned bay windows. "
+        "Julian's colossal mahogany desk is stacked with freshly drafted legal folios awaiting tonight's dinner announcement. "
+        "By the hearth armchair, Dr. Abernathy warms his hands and reviews a set of medical charts while an antique grandfather clock ticks with a steady, tranquil resonance."
+    ),
+    "library": (
+        "Towering floor-to-ceiling oak bookshelves swallow the howling wind outside, creating a warm, scholarly refuge from the Equinox storm. "
+        "A rolling brass ladder leans against the upper gallery, and a green-shaded banker's lamp casts an inviting emerald glow over a reading table where evening newspapers and estate histories have been laid out for arriving guests."
+    ),
+    "conservatory": (
+        "A humid, lush sanctuary under vaulted Victorian iron and glass. Rare orchids and ferns glisten with mist as the rising Atlantic storm drums against the glass dome above. "
+        "Lanterns hang from the wrought-iron arches, illuminating the stone pathways and terracotta planters while the outer terrace doors remain securely latched against the gale."
+    ),
+    "dining": (
+        "The twenty-foot banquet table of polished black walnut is immaculate, set with gleaming silver candelabras, crystal decanters of vintage port, and eight calligraphy place cards for tonight's Solstice dinner. "
+        "Warm savory aromas of roast beef and rosemary waft from the service doors. Above the mantelpiece, the grand oil portrait of Lord Julian Ravenscroft presides over the hall in expectant silence."
+    )
+}
+
+# Rich Evocative Atmospheric Descriptions for Room Headers (Post-Murder Crime Scene State)
 ROOM_ATMOSPHERES = {
     "study": (
-        "The air in the study is thick with the scent of calfskin ledgers, cold woodsmoke, and stale Turkish tobacco. "
-        "Outside, the Autumn Equinox gale batters the coastal cliffs, sending sheets of rain rattling against the tall diamond-paned bay windows. "
-        "A dying fire smolders in the black marble hearth, casting long, wavering shadows across Lord Julian’s colossal mahogany desk. "
-        "The high-backed leather chair sits pushed slightly askew, as though vacated in haste. An antique grandfather clock ticks with a heavy, hollow resonance."
+        "The air in the study is thick with the scent of calfskin ledgers, cold woodsmoke, and shattered crystal. "
+        "At the foot of the stairs leading into the study, a splintered oak banister and a dark stain on the Persian rug mark where Lord Julian fell at 11:42 PM. "
+        "A dying fire smolders in the black marble hearth, casting long, wavering shadows across Julian’s colossal mahogany desk. "
+        "The high-backed leather chair sits pushed askew in haste, while the antique grandfather clock stands frozen at the exact minute of the blackout."
     ),
     "library": (
         "Towering floor-to-ceiling oak bookshelves swallow nearly all sound, creating a cavernous, scholarly hush. "
@@ -385,14 +407,12 @@ ROOM_ATMOSPHERES = {
 # The 14 Daily Parlor Polls (Debate Igniters)
 PARLOR_POLLS = {
     1: {
-        "question": "🏛️ ESTATE POLL: Upon arriving at Ravenscroft Hall, which guest appeared most uneasy?",
+        "question": "⛈️ SOLSTICE ARRIVAL POLL: The coastal bridge has washed out and Lord Julian has secluded himself upstairs before dinner. What troubles you most about Ravenscroft Hall tonight?",
         "options": [
-            "The guest whose carriage arrived in an unusual hurry",
-            "The guest who refused to hand their locked case to Giles",
-            "The guest who went pale when Julian proposed the toast",
-            "The guest who immediately asked where the servants' stairs were",
-            "The guest who kept glancing toward the storm outside",
-            "The guest who lingered alone in the shadow of the gallery"
+            "The violent Atlantic squall severing the telegraph wires",
+            "Lord Julian's sudden, secretive summons to amend his Will",
+            "The eerie drafts and scratching noises behind the wainscoting",
+            "The heavy iron locks bolted across the outer estate gates"
         ]
     },
     2: {
@@ -516,16 +536,16 @@ PARLOR_POLLS = {
 
 def get_parlor_poll(day: int) -> dict:
     """
-    Returns the daily parlor poll. For suspect polls (Day 1 and Day 7),
+    Returns the daily parlor poll. For the Midway Prime Suspect poll (Day 7),
     if players have registered in the database, their custom character titles
     and display names are injected dynamically into the voting options!
     """
     poll_data = PARLOR_POLLS.get(day, PARLOR_POLLS[1]).copy()
     
-    if day in (1, 7):
+    if day == 7:
         try:
             from database import get_all_players
-            players = get_all_players()
+            players = [dict(row) for row in get_all_players()]
             registered = [p for p in players if p.get("interview_step", 0) >= 4]
             if registered:
                 custom_options = []

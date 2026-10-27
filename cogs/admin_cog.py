@@ -12,7 +12,7 @@ from database import (
     get_player, get_player_clues, is_murder_active, set_murder_active
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION, get_parlor_poll
-from cogs.intake_view import BeginRegistrationView
+from cogs.intake_view import BeginRegistrationView, restart_guest_interview
 from cogs.search_view import RoomSearchView, build_room_embed
 from cogs.inquest_view import InquestView
 from cogs.poll_view import ParlorPollView
@@ -272,6 +272,21 @@ class AdminCog(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="redo_interview", description="Restart your 3-question registration interview with Giles in DMs if your dossier needs fixing.")
+    async def redo_interview_cmd(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await restart_guest_interview(interaction.user)
+            await interaction.followup.send(
+                "📬 Giles has opened a fresh page in the guest registry! Check your Direct Messages to redo your 3-question interview.",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                f"⚠️ Could not send a Direct Message to you ({e}). Please ensure DMs from server members are enabled.",
+                ephemeral=True
+            )
+
     @app_commands.command(name="setup_estate", description="Host only: Auto-creates all Ravenscroft channels, roles, and permissions.")
     @app_commands.default_permissions(administrator=True)
     async def setup_estate(self, interaction: discord.Interaction):
@@ -288,8 +303,7 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
         set_current_day(day)
-        if day >= 2:
-            set_murder_active(True)
+        set_murder_active(day >= 2)
         refill_all_tokens()
 
         guild = interaction.guild
@@ -336,7 +350,10 @@ class AdminCog(commands.Cog):
                     await chan.set_permissions(guest_role, view_channel=True, send_messages=True)
                     await chan.edit(topic=f"🏰 {room['name']} | Status: 🔓 UNLOCKED FOR INQUIRY")
 
-        # 4. Day 14 Inquest button
+        # 4. Refresh room embeds in place so phase descriptions and occupancy badges stay in sync
+        await refresh_all_room_embeds(guild, self.bot.user)
+
+        # 5. Day 14 Inquest button
         if day == 14 and parlor:
             inquest_embed = discord.Embed(
                 title="⚖️ THE GRAND INQUEST HAS BEGUN",
@@ -348,7 +365,7 @@ class AdminCog(commands.Cog):
             )
             await parlor.send(embed=inquest_embed, view=InquestView())
 
-        await interaction.followup.send(f"✅ Advanced to Day {day}. Dispatches, Daily Poll, and candle refills complete.", ephemeral=True)
+        await interaction.followup.send(f"✅ Advanced to Day {day}. Dispatches, Daily Poll, room headers, and candle refills complete.", ephemeral=True)
 
     @app_commands.command(name="test_refill", description="Test Mode: Refill 2 candles for all guests immediately.")
     @app_commands.default_permissions(administrator=True)
@@ -364,10 +381,11 @@ class AdminCog(commands.Cog):
             await interaction.response.send_message("NPC must be one of: giles, gable, angus, higgins, abernathy.", ephemeral=True)
             return
 
+        await interaction.response.defer(ephemeral=True)
         set_npc_shift(npc, on_shift)
         status_text = "ON SHIFT (Available)" if on_shift else "OFF SHIFT (Away message)"
 
-        # Post in-character movement announcement
+        # Post in-character movement announcement and refresh room embed badge
         guild = interaction.guild
         chan_name = NPC_CHANNELS.get(npc)
         if chan_name:
@@ -379,7 +397,8 @@ class AdminCog(commands.Cog):
                 topic_status = "🟢 PRESENT & ACTIVE" if on_shift else "🔴 AWAY ON DUTIES"
                 await chan.edit(topic=f"🏰 {chan_name.replace('-', ' ').title()} | Status: {topic_status}")
 
-        await interaction.response.send_message(f"✅ Set {npc.capitalize()} to {status_text}.", ephemeral=True)
+        await refresh_all_room_embeds(guild, self.bot.user)
+        await interaction.followup.send(f"✅ Set {npc.capitalize()} to {status_text} and updated room occupancy badge.", ephemeral=True)
 
     @app_commands.command(name="test_trigger_murder", description="Test Mode: Trigger the dramatic 11:42 PM murder blackout and unlock searches.")
     @app_commands.default_permissions(administrator=True)
@@ -409,7 +428,7 @@ class AdminCog(commands.Cog):
             await parlor.send(embed=blackout_embed)
 
             # Day 2 Poll
-            p2 = PARLOR_POLLS.get(2)
+            p2 = get_parlor_poll(2)
             if p2:
                 poll_embed = discord.Embed(
                     title=f"🗳️ DAY 2 PARLOR INQUIRY",
@@ -429,7 +448,10 @@ class AdminCog(commands.Cog):
             dispatch_embed.set_footer(text="🕯️ All guests have had their 2 candles replenished. Searches are now active.")
             await bulletin.send(embed=dispatch_embed)
 
-        await interaction.followup.send("⚡ The murder event has been triggered! Searches are now unlocked and NPCs are in crime-scene mode.", ephemeral=True)
+        # 3. Update all room headers in place to Crime Scene descriptions & Dr. Abernathy post-murder state!
+        await refresh_all_room_embeds(guild, self.bot.user)
+
+        await interaction.followup.send("⚡ The murder event has been triggered! Searches are now unlocked, room descriptions updated to crime-scene mode, and NPCs alerted.", ephemeral=True)
 
     @app_commands.command(name="test_trigger_reveal", description="Test Mode: Tally ballots and trigger Hermes 3's Grand Inquest reveal monologue.")
     @app_commands.default_permissions(administrator=True)
@@ -510,6 +532,37 @@ class AdminCog(commands.Cog):
             await interaction.response.send_message(f"✉️ Secret rumor successfully slipped to {guest.display_name}'s DMs!", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"⚠️ Failed to deliver DM to {guest.display_name}: {e}", ephemeral=True)
+
+async def refresh_all_room_embeds(guild: discord.Guild, bot_user: discord.ClientUser):
+    """
+    Updates the room header embed in place across all estate rooms so that
+    Pre-Murder vs Post-Murder descriptions and NPC occupancy badges stay in sync
+    without wiping player chat history.
+    """
+    if not guild:
+        return
+    category = discord.utils.get(guild.categories, name=ESTATE_CATEGORY_NAME)
+    if not category:
+        return
+
+    all_rooms = ACT_1_ROOMS + ACT_2_ROOMS + ACT_3_ROOMS
+    for room in all_rooms:
+        channel = discord.utils.get(category.text_channels, name=room["channel"])
+        if not channel:
+            continue
+        new_embed = build_room_embed(room["id"], room["name"])
+        updated = False
+        try:
+            async for msg in channel.history(limit=30):
+                if msg.author.id == bot_user.id and msg.embeds:
+                    if msg.embeds[0].title and msg.embeds[0].title.startswith("🏰"):
+                        await msg.edit(embed=new_embed, view=RoomSearchView(room["id"]))
+                        updated = True
+                        break
+            if not updated:
+                await channel.send(embed=new_embed, view=RoomSearchView(room["id"]))
+        except Exception as e:
+            logger.warning(f"Failed to refresh room embed in {channel.name}: {e}")
 
 async def send_nightly_summaries_to_all(bot: commands.Bot) -> int:
     players = get_all_players()

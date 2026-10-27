@@ -102,11 +102,26 @@ class NpcCog(commands.Cog):
             reply_text = await generate_npc_reply(npc_id, clean_prompt, speaker_name, recent_messages, is_murder_active=murder_active)
 
         # Check and award interrogation bonus (+1 candle once per day)
-        current_day = get_current_day()
-        bonus_awarded = check_and_award_interrogation_bonus(message.author.id, current_day)
-        if bonus_awarded:
-            bonus_flavor = BONUS_CANDLE_MESSAGES.get(npc_id, BONUS_CANDLE_MESSAGES["giles"])
-            reply_text += bonus_flavor
+        # ONLY if the murder is active AND the player asked a substantive investigative question!
+        if murder_active:
+            words = clean_prompt.split()
+            investigative_keywords = {
+                "murder", "killed", "dead", "body", "blood", "poison", "laudanum", "fracture",
+                "skull", "fall", "stairs", "alibi", "weapon", "poker", "clock", "cellar",
+                "crypt", "attic", "dumbwaiter", "will", "emerald", "ring", "barnaby", "finch",
+                "secret", "where", "who", "why", "how", "when", "what", "saw", "heard",
+                "suspicious", "tea", "wine", "port", "wire", "telephone", "search", "clue"
+            }
+            lower_words = {w.strip(".,!?\"'").lower() for w in words}
+            is_substantive_inquiry = (
+                len(words) >= 6 and ("?" in clean_prompt or bool(lower_words & investigative_keywords))
+            )
+            if is_substantive_inquiry:
+                current_day = get_current_day()
+                bonus_awarded = check_and_award_interrogation_bonus(message.author.id, current_day)
+                if bonus_awarded:
+                    bonus_flavor = BONUS_CANDLE_MESSAGES.get(npc_id, BONUS_CANDLE_MESSAGES["giles"])
+                    reply_text += bonus_flavor
 
         await message.reply(f"**{npc_display_name}:** {reply_text}")
 
