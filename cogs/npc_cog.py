@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import logging
+import time
 from database import get_npc_status, get_player, get_current_day, check_and_award_interrogation_bonus, is_murder_active
 from data.prompts import evaluate_interrogation_state
 from cogs.search_view import send_testimony_unlock_dm
@@ -18,12 +19,20 @@ CHANNEL_TO_NPC = {
 }
 
 NPC_TRIGGER_WORDS = {
-    "gable": ["gable", "mrs. gable", "mrs gable", "cook"],
-    "angus": ["angus", "old angus", "groundskeeper", "mechanic"],
-    "higgins": ["higgins", "constable", "constable higgins", "police", "radio"],
+    "gable": ["gable", "mrs. gable", "mrs gable", "cook", "housekeeper", "ma'am"],
+    "angus": ["angus", "old angus", "groundskeeper", "mechanic", "scotsman"],
+    "higgins": ["higgins", "constable", "constable higgins", "police", "radio", "officer"],
     "giles": ["giles", "butler", "steward"],
-    "abernathy": ["abernathy", "doctor", "doc", "physician", "coroner", "dr abernathy", "dr. abernathy"]
+    "abernathy": ["abernathy", "doctor", "doc", "physician", "coroner", "dr abernathy", "dr. abernathy", "examiner"]
 }
+
+CONVERSATION_PHRASES = (
+    "tell me", "show me", "explain", "look at", "check", "examine", "inspect",
+    "what", "where", "who", "how", "why", "when", "did you", "do you", "have you",
+    "can you", "could you", "would you", "will you", "is there", "are there",
+    "were there", "was there", "i think", "i found", "i saw", "hello", "hi ",
+    "hey", "good evening", "good morning", "pardon", "excuse me"
+)
 
 BONUS_CANDLE_MESSAGES = {
     "gable": "\n\n🕯️ *[Mrs. Gable presses a fresh tallow candle into your hand: 'Here, dearie—take this from the larder box. You'll need it in the drafty halls tonight!'] (+1 Candle Added to your supply)*",
@@ -36,6 +45,8 @@ BONUS_CANDLE_MESSAGES = {
 class NpcCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        # Maps (channel_id, user_id) -> unix timestamp of last NPC interaction
+        self.active_conversations: dict[tuple[int, int], float] = {}
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -53,23 +64,44 @@ class NpcCog(commands.Cog):
             else:
                 return
 
+        # Ignore messages where a player is explicitly @mentioning another human player (without @mentioning the bot)
+        mentions_other_human = any(not m.bot for m in message.mentions) and (self.bot.user not in message.mentions)
+        if mentions_other_human:
+            return
+
         # Check triggers:
         # 1. Bot is @mentioned
         # 2. User replied to a bot message
         # 3. User mentioned NPC name/role in the channel
-        # 4. Message ends in a question mark in that NPC's dedicated room
+        # 4. Message contains '?' in that NPC's dedicated room
+        # 5. User is within an active 3-minute conversation window with that room's NPC
+        # 6. In dedicated NPC rooms (excluding Grand Parlor social chat), message starts with/contains conversational inquiry phrases
         is_mentioned = self.bot.user in message.mentions
         is_reply_to_bot = (
             message.reference and 
             message.reference.resolved and 
             message.reference.resolved.author.id == self.bot.user.id
         )
-        content_lower = message.content.lower()
+        content_lower = message.content.lower().strip()
         has_npc_name = any(trigger in content_lower for trigger in NPC_TRIGGER_WORDS.get(npc_id, []))
         is_direct_question = ("?" in message.content and channel_name in CHANNEL_TO_NPC)
 
-        if not (is_mentioned or is_reply_to_bot or has_npc_name or is_direct_question):
+        now = time.time()
+        last_active = self.active_conversations.get((message.channel.id, message.author.id), 0.0)
+        window_seconds = 120.0 if channel_name == "the-grand-parlor" else 180.0
+        in_active_conversation = (now - last_active) <= window_seconds
+
+        is_dedicated_npc_room = (channel_name in CHANNEL_TO_NPC and channel_name != "the-grand-parlor")
+        is_conversational_prompt = is_dedicated_npc_room and (
+            content_lower.startswith(CONVERSATION_PHRASES) or
+            any(p in content_lower for p in ("tell me", "show me", "let me see", "what about", "how about"))
+        )
+
+        if not (is_mentioned or is_reply_to_bot or has_npc_name or is_direct_question or in_active_conversation or is_conversational_prompt):
             return
+
+        # Refresh active conversation window for this player in this room!
+        self.active_conversations[(message.channel.id, message.author.id)] = now
 
         # Check NPC shift status
         npc_status = get_npc_status(npc_id)
