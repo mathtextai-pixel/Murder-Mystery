@@ -75,7 +75,7 @@ class AdminCog(commands.Cog):
         if deep_clean and category:
             for ch in category.text_channels:
                 try:
-                    await ch.purge(limit=100)
+                    await ch.purge(limit=500)
                 except Exception as e:
                     logger.warning(f"Deep clean purge failed on {ch.name}: {e}")
 
@@ -578,23 +578,64 @@ class AdminCog(commands.Cog):
         await target_channel.send(embed=reveal_embed)
         await interaction.followup.send("✅ The grand reveal monologue has been delivered to the Grand Parlor!")
 
-    @app_commands.command(name="test_reset_game", description="Test Mode: Reset database and start completely fresh at Day 1 Pre-Murder.")
+    @app_commands.command(name="test_reset_game", description="Test Mode: Wipe all conversations, revoke all Guest roles, and reset to Day 1 Pre-Murder.")
     @app_commands.default_permissions(administrator=True)
     async def test_reset_game(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+
+        # 1. Capture previous players before wiping DB so we can clean up their DMs and roles
+        previous_players = [dict(p) for p in get_all_players()]
+
+        # 2. Reset SQLite database (players, clues, ballots, day=1, murder_active=0, npc shifts=1)
         reset_entire_game()
 
-        # Strip Guest role from all guild members so they must re-register
-        guest_role = discord.utils.get(interaction.guild.roles, name=GUEST_ROLE_NAME)
-        if guest_role:
-            for member in list(guest_role.members):
-                try:
-                    await member.remove_roles(guest_role, reason="Estate reset to Day 1 Pre-Murder")
-                except Exception as e:
-                    logger.warning(f"Could not remove Guest role from {member.display_name}: {e}")
+        # 3. Clear in-memory NPC conversation timers
+        npc_cog = self.bot.get_cog("NpcCog")
+        if npc_cog and hasattr(npc_cog, "active_conversations"):
+            npc_cog.active_conversations.clear()
 
-        await self._build_or_refresh_estate(interaction.guild, deep_clean=True)
-        await interaction.followup.send("🔄 Ravenscroft Hall has been completely wiped and reset to Day 1 Pre-Murder! All chat history cleared, room embeds refreshed, and guest roles removed.", ephemeral=True)
+        # 4. Completely delete the 'Estate Guest' role (instantly revokes Guest status from 100% of server members
+        # even without Server Members Intent!), then _build_or_refresh_estate recreates a fresh role and locks all rooms.
+        guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
+        if guest_role:
+            try:
+                await guest_role.delete(reason="Full Estate Reset — revoking all guest access")
+            except Exception as e:
+                logger.warning(f"Could not delete Guest role directly ({e}); falling back to per-member removal.")
+                for p in previous_players:
+                    try:
+                        member = await guild.fetch_member(p["discord_id"])
+                        if member:
+                            await member.remove_roles(guest_role, reason="Estate reset to Day 1 Pre-Murder")
+                    except Exception:
+                        pass
+
+        # 5. Deep-clean all estate channels (purges up to 500 messages per channel) and rebuild fresh Day 1 headers
+        await self._build_or_refresh_estate(guild, deep_clean=True)
+
+        # 6. Clean up the bot's own messages in previous players' DM channels so their DMs are fresh too
+        for p in previous_players:
+            try:
+                user = await self.bot.fetch_user(p["discord_id"])
+                if user:
+                    dm = await user.create_dm()
+                    async for msg in dm.history(limit=40):
+                        if msg.author.id == self.bot.user.id:
+                            try:
+                                await msg.delete()
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+        await interaction.followup.send(
+            "🔄 **Ravenscroft Hall has been completely wiped and reset to Day 1 (Pre-Murder)!**\n"
+            "• **Database:** All player dossiers, clues, testimonies, and ballots erased.\n"
+            "• **Guest Status:** `@Estate Guest` role revoked from **all** members (everyone is locked out of the rooms until they check in at `#reception-gates`).\n"
+            "• **Conversations:** All room channels and bot DM cards have been purged and restored to fresh Day 1 headers.",
+            ephemeral=True
+        )
 
     @app_commands.command(name="test_nightly_summary", description="Test Mode: Send the 10:30 PM personalized nightly briefing to all registered guests' DMs.")
     @app_commands.default_permissions(administrator=True)
