@@ -5,19 +5,19 @@ from data.game_data import CANON_SOLUTION
 class AccusationModal(discord.ui.Modal, title="⚖️ The Ravenscroft Inquest Ballot"):
     killer = discord.ui.TextInput(
         label="1. WHO DELIVERED THE FATAL BLOW?",
-        placeholder="e.g. Barnaby Finch, Old Angus, or a named guest...",
+        placeholder="Name the specific person who murdered Lord Julian...",
         required=True,
         max_length=100
     )
     weapon = discord.ui.TextInput(
         label="2. WHAT WAS THE TRUE FATAL WEAPON?",
-        placeholder="e.g. Iron Fireplace Poker, Foxglove Poison, The Fall...",
+        placeholder="Name the exact murder weapon or cause of death...",
         required=True,
         max_length=100
     )
     passage = discord.ui.TextInput(
         label="3. HOW DID THE KILLER ENTER & ESCAPE?",
-        placeholder="e.g. Grandfather clock wall passage, terrace door...",
+        placeholder="Describe the route or passage used by the killer...",
         required=True,
         max_length=100
     )

@@ -161,6 +161,10 @@ async def on_ready():
     bot.add_view(DossierConfirmationView())
     bot.add_view(InquestView())
     bot.add_view(RoomSearchView())
+    for poll_day in range(1, 15):
+        p_info = get_parlor_poll(poll_day)
+        if p_info and p_info.get("options"):
+            bot.add_view(ParlorPollView(poll_day, p_info["options"]))
 
     # Load Cogs safely (avoid duplicate load on gateway reconnects)
     try:

@@ -590,7 +590,9 @@ class AdminCog(commands.Cog):
         # 2. Reset SQLite database (players, clues, ballots, day=1, murder_active=0, npc shifts=1)
         reset_entire_game()
 
-        # 3. Clear in-memory NPC conversation timers
+        # 3. Clear in-memory NPC conversation timers and Poll votes
+        from cogs.poll_view import POLL_VOTES
+        POLL_VOTES.clear()
         npc_cog = self.bot.get_cog("NpcCog")
         if npc_cog and hasattr(npc_cog, "active_conversations"):
             npc_cog.active_conversations.clear()
