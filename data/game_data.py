@@ -231,8 +231,8 @@ ROOM_POOLS = {
     },
     "radio": {
         "major": [
-            ("Coroner's Telegram Transcript", "A decoded radio wire: 'Autopsy reveals skull fracture prior to fall. Fatal trauma caused by blunt iron rod. Sedatives non-lethal.'"),
-            ("Police Dispatch Notice", "Mainland record: 'Barnaby Finch, former convict, reported absconded from county asylum three months ago.'"),
+            ("Burned Cipher Pad", "In the wastebasket lies a charred telegraph pad bearing the handwritten initials 'B.F.' and a circled timetable for the mainland cargo ferry."),
+            ("Master Switchboard Fuse", "Beside the radio console, the main estate lighting fuse was deliberately pulled by hand at 11:40 PM—proving the blackout was not caused by the storm!"),
             ("Severed Aerial Cable", "The external radio antenna shows signs of manual tampering before being temporarily jury-rigged.")
         ],
         "lore": [
@@ -246,6 +246,136 @@ ROOM_POOLS = {
         ]
     }
 }
+
+# NPC Testimonies (Earned ONLY through NPC Interrogation or Presenting Physical Evidence)
+NPC_TESTIMONIES = {
+    "abernathy": [
+        {
+            "id": "abernathy_cranial",
+            "tier": 1,
+            "title": "Testimony: Pre-Fall Cranial Fracture",
+            "npc_name": "Dr. Abernathy",
+            "keywords": ["head", "skull", "wound", "fall", "stairs", "neck", "fracture", "blow", "hit", "autopsy", "cause", "died", "kill", "trauma", "blood"],
+            "required_clues": [],
+            "clue_text": "Dr. Abernathy's examination confirms Lord Julian's neck did not break from the stairs—his skull was fractured from behind by a heavy, blunt iron rod BEFORE he fell.",
+            "prompt_unlock": "REVEAL THIS CLUE NOW: Confirm that your examination of Julian's skull shows a depressed fracture at the base of the cranium caused by a heavy blunt iron rod (like a fireplace poker) struck BEFORE he went over the banister. His neck did not break from the fall."
+        },
+        {
+            "id": "abernathy_ring",
+            "tier": 1,
+            "title": "Testimony: Missing Signet Ring at 11:42",
+            "npc_name": "Dr. Abernathy",
+            "keywords": ["hand", "hands", "finger", "ring", "watch", "pocket", "emerald", "stolen", "missing", "jewelry", "time", "11:42"],
+            "required_clues": [],
+            "clue_text": "Dr. Abernathy noted that Julian's gold pocket watch shattered at 11:42 PM, and a pale indentation on his right ring finger proves his prized Blackwood Emerald ring was stripped from his body.",
+            "prompt_unlock": "REVEAL THIS CLUE NOW: Share that Julian's gold pocket watch stopped at 11:42 PM upon impact, and point out the pale indentation on his right ring finger—someone stripped the priceless Blackwood Emerald signet ring from his hand!"
+        },
+        {
+            "id": "abernathy_sedative",
+            "tier": 2,
+            "title": "Testimony: Non-Lethal Sedative Analysis",
+            "npc_name": "Dr. Abernathy",
+            "keywords": ["poison", "laudanum", "tea", "port", "decanter", "sedative", "drugged", "bottle", "saucer", "drink", "almond", "toxin", "glass", "cup"],
+            "required_clues": ["Tainted Port Decanter", "Discarded Tea Saucer", "Empty Laudanum Bottle"],
+            "clue_text": "Upon inspecting the tainted vessel, Dr. Abernathy confirmed Julian ingested a non-lethal dose of laudanum and bitter almond—someone tried to sedate him, NOT kill him, leaving him sluggish when the true killer struck.",
+            "prompt_unlock": "REVEAL THIS CROSS-EXAMINATION CLUE NOW: Having inspected the physical vessel/tincture the guest uncovered, confirm that Julian ingested a non-lethal dose of concentrated laudanum and bitter almond. Crucially, explain that this dose was meant only to sedate him—NOT kill him—meaning a second perpetrator struck him while he was dizzy!",
+            "locked_hint": "Tell the guest you detected a faint trace of bitter almond and opiate on Julian's lips, but you CANNOT confirm the toxicology without inspecting the physical drinking vessel, teacup, or apothecary bottle used. Urge them to search the Dining Hall or Wine Cellar and present the vessel to you!"
+        }
+    ],
+    "gable": [
+        {
+            "id": "gable_larder",
+            "tier": 1,
+            "title": "Testimony: The Phantom in the Larder",
+            "npc_name": "Mrs. Gable",
+            "keywords": ["food", "larder", "noises", "noise", "walls", "wall", "night", "ghost", "stealing", "bread", "scone", "kitchen", "heard", "creak", "missing", "pantry"],
+            "required_clues": [],
+            "clue_text": "Mrs. Gable confessed that loaves of bread, tins of meat, and tallow candles have been vanishing from the locked pantry for weeks, accompanied by footsteps inside the walls after midnight.",
+            "prompt_unlock": "REVEAL THIS CLUE NOW: Confess in a hushed, frightened voice that food, tins of meat, and candles have been vanishing from your locked larder for weeks, and you've heard footsteps and creaking ropes inside the kitchen walls late at night."
+        },
+        {
+            "id": "gable_barnaby",
+            "tier": 2,
+            "title": "Testimony: The Monogram 'B.F.' & The Dumbwaiter",
+            "npc_name": "Mrs. Gable",
+            "keywords": ["apron", "b.f.", "bf", "monogram", "vest", "dumbwaiter", "scratches", "poker", "carving", "barnaby", "finch", "steward", "shaft", "hoist"],
+            "required_clues": ["Torn Service Apron", "Dumbwaiter Scratches", "Missing Carving Poker"],
+            "clue_text": "Confronted with the kitchen evidence, a trembling Mrs. Gable admitted the monogram 'B.F.' belongs to Barnaby Finch—the disgraced former head steward who knew the dumbwaiter shaft leading to the upper gallery!",
+            "prompt_unlock": "REVEAL THIS CROSS-EXAMINATION CLUE NOW: Gasping at the kitchen evidence the guest found, confess that 'B.F.' stands for Barnaby Finch, the disgraced former head steward Lord Julian had committed years ago! Reveal that Barnaby knew how to climb the kitchen dumbwaiter shaft straight to the upper gallery, and that your heavy iron carving poker is missing from the spit!",
+            "locked_hint": "Act flustered and superstitious—say you daren't speak ill of former servants without proof, and suggest they search `#the-kitchen-and-pantry` thoroughly for anything left behind in the laundry hamper, hearth spit, or dumbwaiter hoist and present it to you."
+        }
+    ],
+    "angus": [
+        {
+            "id": "angus_sabotage",
+            "tier": 1,
+            "title": "Testimony: Sabotaged Motorcars & Missing Tools",
+            "npc_name": "Old Angus",
+            "keywords": ["car", "cars", "tire", "tracks", "road", "bridge", "gate", "motorcar", "rolls", "wire", "wires", "tools", "outside", "telephone", "cut", "cutters", "carriage"],
+            "required_clues": [],
+            "clue_text": "Old Angus confirmed that someone raided his workbench for heavy wire cutters before the storm peaked, severing the ignition cables and telephone lines so no one could summon the mainland police.",
+            "prompt_unlock": "REVEAL THIS CLUE NOW: Grumble that some sneaking thief raided your Carriage House workbench before dinner, stole your heavy copper wire cutters, pulled the distributor cap on the motorcar, and sheared the mainland telephone line."
+        },
+        {
+            "id": "angus_crypt",
+            "tier": 2,
+            "title": "Testimony: Graveyard Mud & The Crypt Passage",
+            "npc_name": "Old Angus",
+            "keywords": ["boot", "boots", "mud", "muddy", "graveyard", "crypt", "tomb", "lever", "poker", "cellar", "coal", "footprints", "size", "tunnel", "passage"],
+            "required_clues": ["Heavy Muddy Footwear", "Muddy Boot Impression", "Bloodied Iron Poker", "Hidden Wall Lever"],
+            "clue_text": "Shown the muddy evidence, Old Angus revealed that the clay on those size-11 boots comes only from the sunken Family Crypt—which connects to the manor's grandfather clock via an ancient smuggling tunnel.",
+            "prompt_unlock": "REVEAL THIS CROSS-EXAMINATION CLUE NOW: Inspecting the muddy boot/crypt evidence the guest uncovered, confirm that heavy grey clay only comes from the sunken Family Crypt! Reveal that old Lord Ravenscroft built a smuggling tunnel from the Crypt's stone sarcophagus lever straight up into the hollow wall behind the grandfather clock!",
+            "locked_hint": "Tell the guest you've seen strange mud tracked near the cellar and conservatory, but you need them to find the actual boots or tracks and bring the evidence to you before you start pointing fingers."
+        }
+    ],
+    "higgins": [
+        {
+            "id": "higgins_wiretap",
+            "tier": 1,
+            "title": "Testimony: Mainland Quarantine & Wiretap",
+            "npc_name": "Constable Higgins",
+            "keywords": ["bridge", "police", "mainland", "weather", "rescue", "boat", "inspector", "report", "telegraph", "wire", "line", "phone", "cut", "when", "help"],
+            "required_clues": [],
+            "clue_text": "Constable Higgins reported over the shortwave that the river bridge is completely submerged and the estate's copper landline went dead at exactly 11:10 PM from an internal cut.",
+            "prompt_unlock": "REVEAL THIS CLUE NOW: Report over the radio static that the mainland switchboard logged Ravenscroft Hall's copper telephone trunk line going dead at 11:10 PM—cut from the inside—thirty minutes before the murder."
+        },
+        {
+            "id": "higgins_asylum",
+            "tier": 2,
+            "title": "Testimony: Asylum Escape Warrant — Barnaby Finch",
+            "npc_name": "Constable Higgins",
+            "keywords": ["barnaby", "finch", "b.f.", "bf", "asylum", "convict", "steward", "emerald", "record", "prison", "escaped", "cipher", "pad", "files", "criminal"],
+            "required_clues": ["Antique Portrait of Barnaby", "Torn Service Apron", "Burned Cipher Pad", "Missing Emerald Box"],
+            "clue_text": "After running the initials 'B.F.' through mainland criminal archives, Constable Higgins confirmed that former steward Barnaby Finch—imprisoned for attempting to steal the Blackwood Emerald—escaped the county asylum three months ago!",
+            "prompt_unlock": "REVEAL THIS CROSS-EXAMINATION CLUE NOW: Over crackling radio static, confirm that you ran the name/initials 'Barnaby Finch' ('B.F.') through mainland constabulary telegraph files: Finch was convicted of attempting to steal the Blackwood Emerald five years ago and ESCAPED the county asylum three months ago! Warn the guests he is hiding inside the estate walls!",
+            "locked_hint": "Report over the radio that you have access to mainland criminal and asylum telegraph archives, but you need a specific suspect name, monogram initials, or cipher pad from the estate to run a file check."
+        }
+    ],
+    "giles": [
+        {
+            "id": "giles_ultimatum",
+            "tier": 1,
+            "title": "Testimony: Julian's Solstice Ultimatum",
+            "npc_name": "Giles",
+            "keywords": ["julian", "will", "argument", "dinner", "speech", "debt", "blackmail", "why", "motive", "secret", "ledger", "disinherit", "money", "fighting"],
+            "required_clues": [],
+            "clue_text": "Giles discretely revealed that Lord Julian summoned this specific circle of guests to announce a revised will at midnight—and kept a private black-ledger of debts and indiscretions in his study.",
+            "prompt_unlock": "REVEAL THIS CLUE NOW: Discretely admit that Lord Julian summoned the guests tonight to announce a sweeping revision to his estate will, and that he kept a private black-ledger of secrets and debts locked in his study."
+        },
+        {
+            "id": "giles_clock_panel",
+            "tier": 2,
+            "title": "Testimony: The Grandfather Clock Secret Panel",
+            "npc_name": "Giles",
+            "keywords": ["clock", "grandfather", "passage", "skeleton", "key", "fuse", "blackout", "lights", "burn", "scrap", "attic", "barnaby", "finch", "steward", "corridor"],
+            "required_clues": ["Scorched Document Scrap", "Torn Ledger Page", "Master Skeleton Key", "Master Switchboard Fuse", "Antique Portrait of Barnaby"],
+            "clue_text": "Presented with hard evidence of an inside job, Giles conceded that only two Master Skeleton Keys exist—and that the heavy grandfather clock at the top of the Grand Staircase conceals a secret service panel used by former steward Barnaby Finch.",
+            "prompt_unlock": "REVEAL THIS CROSS-EXAMINATION CLUE NOW: Seeing the compelling physical evidence presented by the guest, lower your voice and admit that only two Master Skeleton Keys ever existed—yours, and the one kept by your disgraced predecessor, Barnaby Finch. Reveal that the grandfather clock on the upper landing conceals a hidden service panel opening directly behind where Lord Julian stood at 11:42 PM!",
+            "locked_hint": "Maintain polite reserve—state that while you suspect someone with intimate knowledge of the house's architecture was involved, you would need to see hard physical proof (such as a Master Skeleton Key, a pulled switchboard fuse, or burned estate documents) before speculating on secret domestic passages."
+        }
+    ]
+}
+
 
 # 14-Day Morning Dispatches
 DISPATCHES = {

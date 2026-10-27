@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import logging
 from database import get_npc_status, get_player, get_current_day, check_and_award_interrogation_bonus, is_murder_active
+from data.prompts import evaluate_interrogation_state
+from cogs.search_view import send_testimony_unlock_dm
 from ollama_client import generate_npc_reply
 
 logger = logging.getLogger("NpcCog")
@@ -9,6 +11,7 @@ logger = logging.getLogger("NpcCog")
 CHANNEL_TO_NPC = {
     "the-kitchen-and-pantry": "gable",
     "the-carriage-house": "angus",
+    "the-wine-cellar": "angus",
     "the-radio-room": "higgins",
     "the-grand-parlor": "giles",
     "the-study": "abernathy",
@@ -99,7 +102,23 @@ class NpcCog(commands.Cog):
 
         async with message.channel.typing():
             murder_active = is_murder_active()
-            reply_text = await generate_npc_reply(npc_id, clean_prompt, speaker_name, recent_messages, is_murder_active=murder_active)
+            directive, newly_unlocked = evaluate_interrogation_state(
+                user_id=message.author.id,
+                npc_id=npc_id,
+                user_message=clean_prompt,
+                murder_active=murder_active
+            )
+            reply_text = await generate_npc_reply(
+                npc_id,
+                clean_prompt,
+                speaker_name,
+                recent_messages,
+                is_murder_active=murder_active,
+                interrogation_directive=directive
+            )
+
+        if newly_unlocked:
+            await send_testimony_unlock_dm(message.author, newly_unlocked)
 
         # Check and award interrogation bonus (+1 candle once per day)
         # ONLY if the murder is active AND the player asked a substantive investigative question!
@@ -114,7 +133,7 @@ class NpcCog(commands.Cog):
             }
             lower_words = {w.strip(".,!?\"'").lower() for w in words}
             is_substantive_inquiry = (
-                len(words) >= 6 and ("?" in clean_prompt or bool(lower_words & investigative_keywords))
+                len(words) >= 6 and ("?" in clean_prompt or bool(lower_words & investigative_keywords) or bool(newly_unlocked))
             )
             if is_substantive_inquiry:
                 current_day = get_current_day()

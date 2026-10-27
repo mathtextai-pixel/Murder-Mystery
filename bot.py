@@ -160,9 +160,7 @@ async def on_ready():
     bot.add_view(BeginRegistrationView())
     bot.add_view(DossierConfirmationView())
     bot.add_view(InquestView())
-    all_rooms = ACT_1_ROOMS + ACT_2_ROOMS + ACT_3_ROOMS
-    for room in all_rooms:
-        bot.add_view(RoomSearchView(room["id"]))
+    bot.add_view(RoomSearchView())
 
     # Load Cogs safely (avoid duplicate load on gateway reconnects)
     try:
@@ -172,6 +170,15 @@ async def on_ready():
             await bot.load_extension("cogs.npc_cog")
     except Exception as e:
         logger.error(f"Error loading cogs: {e}")
+
+    # Refresh room embeds so the new 'Present Evidence' button is active on all room headers
+    try:
+        from cogs.admin_cog import refresh_all_room_embeds
+        for guild in bot.guilds:
+            await refresh_all_room_embeds(guild, bot.user)
+        logger.info("Refreshed all room embeds with Search & Present Evidence buttons.")
+    except Exception as e:
+        logger.error(f"Failed to refresh room embeds on startup: {e}")
 
     # Sync Slash Commands
     try:

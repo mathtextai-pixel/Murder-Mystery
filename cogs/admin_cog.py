@@ -13,7 +13,10 @@ from database import (
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION, get_parlor_poll
 from cogs.intake_view import BeginRegistrationView, restart_guest_interview
-from cogs.search_view import RoomSearchView, build_room_embed
+from cogs.search_view import (
+    RoomSearchView, build_room_embed, PresentEvidenceSelectView,
+    CHANNEL_NAME_TO_ROOM_ID, ROOM_TO_NPC_INFO
+)
 from cogs.inquest_view import InquestView
 from cogs.poll_view import ParlorPollView
 from ollama_client import generate_grand_reveal_speech
@@ -246,7 +249,7 @@ class AdminCog(commands.Cog):
                 await vchan.set_permissions(everyone_role, view_channel=False)
                 await vchan.set_permissions(guest_role, view_channel=True, connect=True)
 
-    @app_commands.command(name="my_dossier", description="Review your secret character dossier and found clues privately.")
+    @app_commands.command(name="my_dossier", description="Review your secret character dossier, physical clues, and recorded NPC testimonies.")
     async def my_dossier(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         player = get_player(user_id)
@@ -258,7 +261,23 @@ class AdminCog(commands.Cog):
             return
 
         clues = get_player_clues(user_id)
-        clue_summary = "\n".join([f"• **{c['clue_title']}** ({c['room_id']}): {c['clue_text']}" for c in clues]) if clues else "No clues found yet. Use your daily candles to search rooms!"
+        physical_clues = [
+            c for c in clues
+            if not str(c["room_id"]).startswith("npc:") and c["clue_title"] != "Nothing of Note"
+        ]
+        testimony_clues = [
+            c for c in clues
+            if str(c["room_id"]).startswith("npc:")
+        ]
+
+        phys_summary = (
+            "\n".join([f"• **{c['clue_title']}** ({c['room_id']}): {c['clue_text']}" for c in physical_clues])
+            if physical_clues else "No physical clues found yet. Use **🕯️ Search the Room** to inspect chambers!"
+        )
+        test_summary = (
+            "\n".join([f"• **{c['clue_title']}** ({str(c['room_id']).replace('npc:', '')}): {c['clue_text']}" for c in testimony_clues])
+            if testimony_clues else "No official testimonies recorded yet. Question NPCs about specific details or click **🗂️ Present Evidence**!"
+        )
 
         embed = discord.Embed(
             title=f"📜 Dossier: {player['character_title']}",
@@ -267,10 +286,76 @@ class AdminCog(commands.Cog):
         embed.add_field(name="🎒 Personal Item", value=player["item_brought"] or "None declared", inline=False)
         embed.add_field(name="🤫 Dirty Secret", value=player["dirty_secret"], inline=False)
         embed.add_field(name="🎯 Secret Objective", value=player["secret_goal"], inline=False)
-        embed.add_field(name=f"🕯️ Candles Remaining", value=f"{player['tokens_remaining']} candles", inline=True)
-        embed.add_field(name=f"🔍 Clues In Your Pocket ({len(clues)})", value=clue_summary[:1000], inline=False)
+        embed.add_field(name="🕯️ Candles Remaining", value=f"{player['tokens_remaining']} candles", inline=True)
+        embed.add_field(name=f"🔍 Physical Evidence Found ({len(physical_clues)})", value=phys_summary[:1024], inline=False)
+        embed.add_field(name=f"🗣️ Recorded NPC Testimonies ({len(testimony_clues)})", value=test_summary[:1024], inline=False)
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="present_evidence", description="Present a piece of physical evidence from your dossier to the NPC in this room.")
+    async def present_evidence_cmd(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        player = get_player(user_id)
+        if not player or player["interview_step"] < 4:
+            await interaction.response.send_message(
+                "You must complete your guest registration with Giles at `#reception-gates` first.",
+                ephemeral=True
+            )
+            return
+
+        if not is_murder_active():
+            await interaction.response.send_message(
+                "🕯️ No crime has occurred yet! Enjoy the Solstice reception until dinner.",
+                ephemeral=True
+            )
+            return
+
+        ch_name = getattr(interaction.channel, "name", "")
+        actual_room_id = CHANNEL_NAME_TO_ROOM_ID.get(ch_name, "parlor" if interaction.guild is None else None)
+        npc_info = ROOM_TO_NPC_INFO.get(actual_room_id) if actual_room_id else None
+
+        if not npc_info or not npc_info[0]:
+            await interaction.response.send_message(
+                "👤 **No Staff Member Present Here.**\n"
+                "Use `/present_evidence` or the **🗂️ Present Evidence** button inside a chamber with an attendant:\n"
+                "• **Giles** in `#the-grand-parlor` (or in your DMs)\n"
+                "• **Dr. Abernathy** in `#the-study`\n"
+                "• **Mrs. Gable** in `#the-kitchen-and-pantry`\n"
+                "• **Old Angus** in `#the-carriage-house` or `#the-wine-cellar`\n"
+                "• **Constable Higgins** in `#the-radio-room`",
+                ephemeral=True
+            )
+            return
+
+        npc_id, npc_display_name, _, _, off_txt = npc_info
+        status = get_npc_status(npc_id)
+        if status and not status["is_on_shift"]:
+            await interaction.response.send_message(
+                f"🔴 **{npc_display_name} is currently away** (*{off_txt}*). Return when they are on shift!",
+                ephemeral=True
+            )
+            return
+
+        all_clues = get_player_clues(user_id)
+        physical_clues = [
+            c for c in all_clues
+            if not str(c["room_id"]).startswith("npc:") and c["clue_title"] != "Nothing of Note"
+        ]
+
+        if not physical_clues:
+            await interaction.response.send_message(
+                "🔍 **Your Evidence Pocket is Empty!**\n"
+                "You haven't discovered any physical clues in the rooms yet. Click **🕯️ Search the Room** to find physical evidence first, then present it here!",
+                ephemeral=True
+            )
+            return
+
+        view = PresentEvidenceSelectView(npc_id, npc_display_name, physical_clues)
+        await interaction.response.send_message(
+            f"🗂️ **Cross-Examine {npc_display_name}**\nSelect a piece of physical evidence from your `/my_dossier` to present:",
+            view=view,
+            ephemeral=True
+        )
 
     @app_commands.command(name="redo_interview", description="Restart your 3-question registration interview with Giles in DMs if your dossier needs fixing.")
     async def redo_interview_cmd(self, interaction: discord.Interaction):

@@ -237,6 +237,29 @@ def record_player_clue(discord_id: int, room_id: str, title: str, text: str, is_
     conn.commit()
     conn.close()
 
+def record_npc_testimony(discord_id: int, npc_name: str, title: str, text: str) -> bool:
+    """
+    Records an earned NPC testimony clue if the player hasn't unlocked it yet.
+    Returns True if newly unlocked, False if already in their dossier.
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        "SELECT id FROM player_clues WHERE discord_id = ? AND clue_title = ?",
+        (discord_id, title)
+    )
+    if c.fetchone():
+        conn.close()
+        return False
+    c.execute("""
+    INSERT INTO player_clues (discord_id, room_id, clue_title, clue_text, is_major)
+    VALUES (?, ?, ?, ?, 1)
+    """, (discord_id, f"npc:{npc_name}", title, text))
+    conn.commit()
+    conn.close()
+    return True
+
+
 def get_player_clues(discord_id: int):
     conn = get_connection()
     c = conn.cursor()

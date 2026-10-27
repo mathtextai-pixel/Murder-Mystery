@@ -173,11 +173,27 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
 
     # If already registered (step >= 4), this is a private 1-on-1 consultation with Giles!
     if step >= 4:
+        from data.prompts import evaluate_interrogation_state
+        from cogs.search_view import send_testimony_unlock_dm
         async with message.channel.typing():
             current_day = get_current_day()
             murder_active = is_murder_active()
-            reply = await generate_giles_dm_consultation(dict(player), message.content, current_day, murder_active)
+            directive, newly_unlocked = evaluate_interrogation_state(
+                user_id=message.author.id,
+                npc_id="giles",
+                user_message=message.content,
+                murder_active=murder_active
+            )
+            reply = await generate_giles_dm_consultation(
+                dict(player),
+                message.content,
+                current_day,
+                murder_active,
+                interrogation_directive=directive
+            )
         await message.channel.send(f"**Giles (in confidence):** {reply}")
+        if newly_unlocked:
+            await send_testimony_unlock_dm(message.author, newly_unlocked)
         return
 
     intake_data = json.loads(player["intake_data"] or "{}")

@@ -110,15 +110,22 @@ async def validate_and_respond_intake(step: int, user_text: str, history: list) 
     else:
         return True, strip_npc_prefix(raw_response)
 
-async def generate_npc_reply(npc_id: str, user_text: str, speaker_name: str, recent_channel_messages: list, is_murder_active: bool = False) -> str:
+async def generate_npc_reply(
+    npc_id: str,
+    user_text: str,
+    speaker_name: str,
+    recent_channel_messages: list,
+    is_murder_active: bool = False,
+    interrogation_directive: str = ""
+) -> str:
     current_day = get_current_day()
     prompts_dict = NPC_PROMPTS if is_murder_active else PRE_MURDER_NPC_PROMPTS
     base_system = prompts_dict.get(npc_id, prompts_dict["giles"])
     
-    # Inject dynamic phase/act awareness and live checked-in guest roster!
+    # Inject dynamic phase/act awareness, interrogation locks, and live checked-in guest roster!
     act_context = get_dynamic_act_context(current_day, is_murder_active, npc_id)
     roster_context = build_guest_roster_context()
-    full_system = f"{base_system}\n{act_context}\n{roster_context}"
+    full_system = f"{base_system}\n{act_context}\n{interrogation_directive}\n{roster_context}"
     
     messages = []
     for msg in recent_channel_messages[-6:]:
@@ -176,7 +183,7 @@ async def generate_custom_player_dossier(player_name: str, q1: str, q2: str, q3:
             
     return {"title": title, "secret": secret, "goal": goal}
 
-async def generate_giles_dm_consultation(player: dict, user_message: str, current_day: int, murder_active: bool) -> str:
+async def generate_giles_dm_consultation(player: dict, user_message: str, current_day: int, murder_active: bool, interrogation_directive: str = "") -> str:
     """
     Generates a private 1-on-1 consultation response from Giles in DMs.
     Giles knows the player's secrets, the full guest roster, and current phase.
@@ -190,6 +197,7 @@ async def generate_giles_dm_consultation(player: dict, user_message: str, curren
         f"Their Confidential Secret: {player['dirty_secret']}\n"
         f"Their Personal Objective: {player['secret_goal']}\n"
         f"{act_context}\n"
+        f"{interrogation_directive}\n"
         f"{roster_context}\n"
         "Personality: Impeccably discreet, formal, loyal to Ravenscroft hospitality. You are speaking in total secrecy behind closed doors.\n"
         "Rules:\n"

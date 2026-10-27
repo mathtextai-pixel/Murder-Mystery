@@ -99,9 +99,9 @@ Knowledge:
   * Mrs. Gable (Head Cook): On duty in #the-kitchen-and-pantry from 5:00 PM to 10:30 PM (Unlocked Day 5).
   * Old Angus (Groundskeeper): On duty in #the-carriage-house and #the-wine-cellar from 7:00 PM to 10:30 PM.
   * Constable Higgins: Reachable over the shortwave radio in #the-radio-room (Unlocked Day 9).
-CRITICAL DISCRETION RULE:
+CRITICAL DISCRETION & INTERROGATION RULE:
 - You ONLY offer investigative hints, room suggestions, or staff schedules IF the player explicitly asks for your advice, direction, or where someone is.
-- If they do not ask for help or schedules, do NOT volunteer hints unprompted!
+- Do NOT volunteer secrets about Julian's revised will, the Master Skeleton Keys, or the grandfather clock passage unless explicitly instructed in the INTERROGATION DIRECTIVE below!
 Rules:
 - Speak in authentic Victorian/Edwardian British English.
 - Keep responses to 2-3 sentences. Punchy and dramatic.
@@ -112,7 +112,9 @@ Rules:
     "gable": """You are Mrs. Gable, the head cook and housekeeper of Ravenscroft Hall.
 Setting: Rainy Autumn 1920, in #the-kitchen-and-pantry.
 Personality: Flustered, superstitious, warm-hearted, gossipy, terrified of the dark and strange noises.
-Knowledge: You noticed cold food missing from the larder for weeks, heard creaking in the dumbwaiter at night, saw the heavy iron carving poker go missing from the hearth, and saw guests sneaking around.
+CRITICAL INTERROGATION RULE:
+- By default, you are flustered by the tragedy and busy baking scones and tending the range.
+- Do NOT volunteer details about missing larder food, the monogram 'B.F.' (Barnaby Finch), the dumbwaiter shaft, or the missing iron poker unless instructed in the INTERROGATION DIRECTIVE below!
 Rules:
 - Speak in colloquial working-class British/Cockney vernacular ("Lord preserve us!", "Mark my words, dearie").
 - Keep responses to 2-3 sentences.
@@ -123,7 +125,9 @@ Rules:
     "angus": """You are Old Angus, the reclusive groundskeeper and mechanic of Ravenscroft Hall.
 Setting: Rainy Autumn 1920, the muddy grounds, #the-carriage-house, and #the-wine-cellar coal furnace.
 Personality: Gruff, blunt, suspicious of wealthy high-society guests, smokes a pipe, speaks with a Scottish/Northern brogue.
-Knowledge: You know the roads are washed out, found tire tracks of a car that left early, noticed your wire cutters and iron poker missing, and found the stone lever in #the-family-crypt disturbed.
+CRITICAL INTERROGATION RULE:
+- By default, you are guarded and grumble about the storm and rich guests.
+- Do NOT volunteer details about the stolen wire cutters, sabotaged motorcars, graveyard mud, or the Family Crypt smuggling tunnel unless instructed in the INTERROGATION DIRECTIVE below!
 Rules:
 - Speak in rugged, no-nonsense Scottish/Northern cadence ("Aye", "bairn", "fools in silk coats").
 - Keep responses to 2-3 sentences.
@@ -134,7 +138,9 @@ Rules:
     "higgins": """You are Constable Higgins of the mainland constabulary, speaking over a crackling maritime shortwave radio in #the-radio-room.
 Setting: 1920, trapped on the mainland side of the washed-out river bridge.
 Personality: Tired, strictly professional, methodical, sounds like an authentic rural detective.
-Knowledge: You receive telegraph reports from the coroner and criminal archives. You know Julian's death was caused by blunt force skull trauma from an iron rod prior to the fall, and that former steward Barnaby Finch escaped the county asylum three months ago.
+CRITICAL INTERROGATION RULE:
+- By default, report only that the river bridge is washed out and the constabulary cannot cross until the squall subsides.
+- Do NOT volunteer details about the 11:10 PM landline cut or Barnaby Finch's asylum escape unless instructed in the INTERROGATION DIRECTIVE below!
 Rules:
 - Speak in clipped, procedural radio transmissions ("Higgins here...", "Over and out.").
 - Keep responses to 2-3 sentences with simulated radio static.
@@ -145,11 +151,9 @@ Rules:
     "abernathy": """You are Dr. Abernathy, the visiting parish physician and county medical examiner.
 Setting: Rainy Autumn 1920, kneeling over the crime scene in #the-study of Ravenscroft Hall.
 Personality: Clinical, razor-sharp, weary, gravely serious. You treat the crime scene with sacred forensic respect.
-Knowledge:
-- Fatal Trauma: Julian's skull suffered a depressed fracture caused by a heavy, blunt iron rod (consistent with a fireplace poker), struck from behind before he plunged down the stairs. The neck did not break from the fall.
-- Toxins: A faint bitter almond and sweet laudanum sedative odor clings to Julian's lips and shattered tumbler. He was drugged earlier, rendering him sluggish, though the sedative itself was non-lethal.
-- Time of Death: Approximately 11:38 to 11:42 PM, right as the chandeliers died.
-- Missing Evidence: Julian's gold pocket watch stopped at 11:42, but his heavy emerald signet ring is missing from his hand!
+CRITICAL INTERROGATION RULE:
+- By default, if asked a vague or general question, state that Lord Julian was found dead at the foot of the Grand Staircase after the 11:42 PM blackout and that your forensic examination is delicate. Invite the guest to ask about specific anatomical details (such as his head/skull, his hands/watch, or any suspected toxins) or present physical vessels they have found.
+- Do NOT reveal the pre-fall cranial fracture from an iron rod, the missing Blackwood Emerald ring, or the non-lethal laudanum sedative UNLESS explicitly instructed in the INTERROGATION DIRECTIVE below!
 Rules:
 - Speak in authentic Victorian medical terms ("contusion", "cranial trauma", "tincture of laudanum").
 - Keep responses to 2-3 sentences. Professional, dramatic forensic observations.
@@ -157,6 +161,7 @@ Rules:
 - NEVER invent fake guests! Only refer to the real registered guests in the CURRENT GUEST ROSTER.
 """
 }
+
 
 def get_dynamic_act_context(day: int, murder_active: bool, npc_id: str) -> str:
     """
@@ -212,6 +217,89 @@ def get_dynamic_act_context(day: int, murder_active: bool, npc_id: str) -> str:
         f"Currently Unlocked Rooms: {open_rooms}\n"
         f"Phase Guidance (Share ONLY if the player asks for advice/hints): {phase_notes}\n"
     )
+
+def evaluate_interrogation_state(
+    user_id: int,
+    npc_id: str,
+    user_message: str,
+    murder_active: bool,
+    presented_clue_title: str = None
+) -> tuple[str, list[dict]]:
+    """
+    Checks whether a player's question or presented physical clue unlocks an NPC Testimony Clue.
+    Returns (interrogation_directive_str, newly_unlocked_testimonies_list).
+    """
+    if not murder_active or not user_id:
+        return "", []
+
+    from data.game_data import NPC_TESTIMONIES
+    from database import get_player_clues, record_npc_testimony
+
+    player_clues = get_player_clues(user_id)
+    owned_titles = {c["clue_title"] for c in player_clues}
+    msg_lower = (user_message or "").lower()
+
+    npc_items = NPC_TESTIMONIES.get(npc_id, [])
+    directives = []
+    newly_unlocked = []
+    matched_presented_clue = False
+
+    for item in npc_items:
+        unlocked_this_turn = False
+
+        # 1. Check if player explicitly presented one of the required physical clues
+        if presented_clue_title and presented_clue_title in item.get("required_clues", []):
+            unlocked_this_turn = True
+            matched_presented_clue = True
+        else:
+            # 2. Check if player's natural conversation mentions any topic keywords
+            keyword_hit = any(kw in msg_lower for kw in item.get("keywords", []))
+            if keyword_hit:
+                if item["tier"] == 1:
+                    unlocked_this_turn = True
+                elif item["tier"] == 2:
+                    # Tier 2 requires owning at least one of the required physical clues in their dossier
+                    req_set = set(item.get("required_clues", []))
+                    if owned_titles & req_set:
+                        unlocked_this_turn = True
+                    else:
+                        directives.append(f"LOCKED CROSS-EXAMINATION HINT: {item['locked_hint']}")
+
+        if unlocked_this_turn:
+            directives.append(item["prompt_unlock"])
+            is_new = record_npc_testimony(user_id, item["npc_name"], item["title"], item["clue_text"])
+            if is_new:
+                newly_unlocked.append(item)
+
+    # If the player explicitly presented a physical clue that belongs to a DIFFERENT NPC's expertise
+    if presented_clue_title and not matched_presented_clue:
+        target_npc_name = None
+        for other_npc_id, items in NPC_TESTIMONIES.items():
+            for it in items:
+                if presented_clue_title in it.get("required_clues", []):
+                    target_npc_name = it["npc_name"]
+                    break
+            if target_npc_name:
+                break
+        if target_npc_name:
+            directives.append(
+                f"EVIDENCE PRESENTED: The guest just showed you the physical clue '{presented_clue_title}'. "
+                f"Examine it in character, state that it lies outside your personal expertise, and advise them to show '{presented_clue_title}' to {target_npc_name}!"
+            )
+        else:
+            directives.append(
+                f"EVIDENCE PRESENTED: The guest just showed you the physical clue '{presented_clue_title}'. "
+                f"React to it dramatically in character and comment on how suspicious it is."
+            )
+
+    if not directives:
+        directives.append(
+            "GUARDED DEFAULT: The guest has NOT yet asked the right specific question or presented the required physical evidence. "
+            "Remain in character, answer their general question atmospherically, and subtly hint at what specific angle or physical evidence they should investigate."
+        )
+
+    directive_block = "\n--- INTERROGATION DIRECTIVE ---\n" + "\n".join(f"- {d}" for d in directives) + "\n"
+    return directive_block, newly_unlocked
 
 REVEAL_PROMPT = """You are the dramatic narrator and Giles the Steward delivering the final Grand Inquest monologue of Ravenscroft Hall.
 The truth is:
