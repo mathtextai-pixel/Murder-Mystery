@@ -17,16 +17,19 @@ async def chat_completion(messages: list, system_prompt: str = "") -> str:
         "model": OLLAMA_MODEL,
         "messages": formatted_messages,
         "stream": False,
+        "keep_alive": "30m",
         "options": {
             "temperature": 0.7,
             "top_p": 0.9,
-            "num_predict": 400
+            "num_ctx": 2048,
+            "num_predict": 180,
+            "num_thread": 4
         }
     }
     
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=45)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=90)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     return data.get("message", {}).get("content", "").strip()
@@ -35,7 +38,7 @@ async def chat_completion(messages: list, system_prompt: str = "") -> str:
                     logger.error(f"Ollama API error {resp.status}: {text}")
                     return "Giles clears his throat in silence. (AI service error)"
     except Exception as e:
-        logger.error(f"Failed to communicate with Ollama: {e}")
+        logger.error(f"Failed to communicate with Ollama ({type(e).__name__}): {e}")
         return "Giles stares forward impassively, lost in thought. (Local AI connection failed)"
 
 async def validate_and_respond_intake(step: int, user_text: str, history: list) -> tuple:
