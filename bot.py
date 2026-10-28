@@ -12,7 +12,7 @@ from database import (
     init_db, get_current_day, set_current_day, refill_all_tokens, set_npc_shift, set_murder_active, is_murder_active
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, get_parlor_poll
-from cogs.intake_view import BeginRegistrationView, DossierConfirmationView, handle_dm_intake
+from cogs.intake_view import BeginRegistrationView, DossierConfirmationView, handle_dm_intake, send_day2_alibi_prompts
 from cogs.search_view import RoomSearchView
 from cogs.inquest_view import InquestView
 from cogs.poll_view import ParlorPollView
@@ -104,6 +104,9 @@ async def scheduled_morning_dispatch():
 
         # 4. Refresh room header embeds in place
         await refresh_all_room_embeds(guild, bot.user)
+
+    if day >= 2:
+        await send_day2_alibi_prompts(bot)
 
 # Scheduled NPC Evening Shifts
 async def shift_evening_start():

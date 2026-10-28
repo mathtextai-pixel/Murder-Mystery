@@ -33,11 +33,16 @@ def init_db():
         consecutive_empty INTEGER DEFAULT 0,
         interview_step INTEGER DEFAULT 0,
         intake_data TEXT DEFAULT '{}',
-        daily_bonus_day INTEGER DEFAULT 0
+        daily_bonus_day INTEGER DEFAULT 0,
+        alibi_claim TEXT DEFAULT ''
     )
     """)
     try:
         c.execute("ALTER TABLE players ADD COLUMN daily_bonus_day INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass # Column already exists
+    try:
+        c.execute("ALTER TABLE players ADD COLUMN alibi_claim TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass # Column already exists
     
@@ -169,6 +174,25 @@ def update_player_interview(discord_id: int, step: int, intake_dict: dict, chara
         item_brought = CASE WHEN ? != '' THEN ? ELSE item_brought END
     WHERE discord_id = ?
     """, (step, json.dumps(intake_dict), character_title, character_title, dirty_secret, dirty_secret, secret_goal, secret_goal, item_brought, item_brought, discord_id))
+    conn.commit()
+    conn.close()
+
+def update_player_alibi(discord_id: int, alibi_claim: str, intake_dict: dict = None):
+    conn = get_connection()
+    c = conn.cursor()
+    if intake_dict is not None:
+        c.execute("""
+        UPDATE players
+        SET alibi_claim = ?,
+            intake_data = ?
+        WHERE discord_id = ?
+        """, (alibi_claim, json.dumps(intake_dict), discord_id))
+    else:
+        c.execute("""
+        UPDATE players
+        SET alibi_claim = ?
+        WHERE discord_id = ?
+        """, (alibi_claim, discord_id))
     conn.commit()
     conn.close()
 

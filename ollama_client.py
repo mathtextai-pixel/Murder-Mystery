@@ -21,10 +21,12 @@ def strip_npc_prefix(text: str) -> str:
         cleaned = re.sub(pattern, "", cleaned, count=1, flags=re.IGNORECASE).strip()
     return cleaned
 
-def build_guest_roster_context() -> str:
+def build_guest_roster_context(include_private_disputes: bool = False) -> str:
     """
-    Builds a live summary of all checked-in guests from the database, including their
-    Discord name, character title, declared luggage item, and interview backstory.
+    Builds a live summary of all checked-in guests from the database.
+    By default (include_private_disputes=False), ONLY public details (Name, Title, Public Profession,
+    Luggage Item, and Stated 11:42 PM Alibi) are included so public NPCs NEVER leak a player's
+    confidential dispute, dirty secret, or personal objective!
     """
     try:
         rows = get_all_players()
@@ -34,11 +36,17 @@ def build_guest_roster_context() -> str:
             return "\n--- CURRENT GUEST ROSTER ---\nNo guests have completed registration yet.\n"
 
         lines = ["\n--- CURRENT GUEST ROSTER (CHECKED-IN GUESTS AT RAVENSCROFT HALL) ---"]
-        lines.append("CRITICAL RULE: Below are the ONLY real guests in the manor. NEVER invent fictional guests (like 'Arabella Farley'). When asked about a guest, refer to their real details below:")
+        lines.append(
+            "CRITICAL ROSTER & PRIVACY RULES:\n"
+            "1. Below are the ONLY real guests in the manor. NEVER invent fictional guests (like 'Arabella Farley').\n"
+            "2. STRICT GUEST CONFIDENTIALITY: You are bound by Victorian staff decorum. You ONLY know a guest's public identity, luggage item, and stated alibi below. "
+            "NEVER speculate on, invent, or reveal any guest's private financial disputes, blackmail, or personal secrets in public conversation!"
+        )
         for p in registered:
             disp = p.get("display_name") or p.get("username") or "Guest"
             title = p.get("character_title") or disp
             item = p.get("item_brought") or "Undisclosed luggage"
+            alibi = p.get("alibi_claim") or ""
             intake_raw = p.get("intake_data") or "{}"
             try:
                 intake = json.loads(intake_raw)
@@ -46,9 +54,10 @@ def build_guest_roster_context() -> str:
                 intake = {}
             q1 = intake.get("question_1", "")
             q3 = intake.get("question_3", "")
-            backstory_str = f" | Interview Background: {q1}" if q1 else ""
-            tension_str = f" | Known Dispute with Julian: {q3}" if q3 else ""
-            lines.append(f"- {title} (Discord Name: {disp}) | Luggage Item: {item}{backstory_str}{tension_str}")
+            backstory_str = f" | Public Identity & Connection: {q1}" if q1 else ""
+            alibi_str = f" | Stated 11:42 PM Alibi: {alibi}" if alibi else ""
+            tension_str = f" | Private Dispute (FINALE ONLY): {q3}" if (include_private_disputes and q3) else ""
+            lines.append(f"- {title} (Discord Name: {disp}) | Luggage Item: {item}{backstory_str}{alibi_str}{tension_str}")
         return "\n".join(lines) + "\n"
     except Exception as e:
         logger.error(f"Failed to build guest roster context: {e}")
@@ -186,14 +195,24 @@ async def generate_custom_player_dossier(player_name: str, q1: str, q2: str, q3:
 async def generate_giles_dm_consultation(player: dict, user_message: str, current_day: int, murder_active: bool, interrogation_directive: str = "") -> str:
     """
     Generates a private 1-on-1 consultation response from Giles in DMs.
-    Giles knows the player's secrets, the full guest roster, and current phase.
+    Giles knows THIS player's secrets, the public guest roster, and current phase.
     """
     act_context = get_dynamic_act_context(current_day, murder_active, "giles")
-    roster_context = build_guest_roster_context()
+    roster_context = build_guest_roster_context(include_private_disputes=False)
+    intake_raw = player.get("intake_data") or "{}"
+    try:
+        intake = json.loads(intake_raw)
+    except Exception:
+        intake = {}
+    private_dispute = intake.get("question_3", "Undisclosed")
+    alibi_claim = player.get("alibi_claim") or "Not yet recorded"
+
     system_prompt = (
         "You are Giles, senior house steward of Ravenscroft Hall, speaking privately to a guest in their personal bedchamber (Discord DM).\n"
         f"Speaking To: {player['character_title']} (Discord: {player['display_name']})\n"
         f"Their Declared Item: {player['item_brought']}\n"
+        f"Their Stated 11:42 PM Alibi: {alibi_claim}\n"
+        f"Their Confidential Dispute with Julian: {private_dispute}\n"
         f"Their Confidential Secret: {player['dirty_secret']}\n"
         f"Their Personal Objective: {player['secret_goal']}\n"
         f"{act_context}\n"
@@ -202,6 +221,7 @@ async def generate_giles_dm_consultation(player: dict, user_message: str, curren
         "Personality: Impeccably discreet, formal, loyal to Ravenscroft hospitality. You are speaking in total secrecy behind closed doors.\n"
         "Rules:\n"
         "- Speak in authentic Victorian British English.\n"
+        "- CONFIDENTIALITY SEAL: You may discuss THIS guest's own secret and dispute with them privately, but NEVER betray another guest's confidential secrets!\n"
         "- Only offer investigative hints or staff schedules if the player asks for advice or direction.\n"
         "- Never prefix your reply with 'Giles:'—just speak directly.\n"
         "- Keep response to 2-3 sentences."
@@ -211,7 +231,7 @@ async def generate_giles_dm_consultation(player: dict, user_message: str, curren
     return strip_npc_prefix(reply)
 
 async def generate_grand_reveal_speech(ballots_summary: str) -> str:
-    roster_context = build_guest_roster_context()
+    roster_context = build_guest_roster_context(include_private_disputes=True)
     full_prompt = f"{REVEAL_PROMPT}\n{roster_context}"
     messages = [
         {"role": "user", "content": f"The guests have cast their final ballots:\n{ballots_summary}\n\nDeliver the grand finale monologue now."}

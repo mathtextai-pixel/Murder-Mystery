@@ -2,8 +2,8 @@ import discord
 import json
 import logging
 from database import (
-    get_player, create_or_get_player, update_player_interview, get_all_players,
-    get_current_day, is_murder_active
+    get_player, create_or_get_player, update_player_interview, update_player_alibi,
+    get_all_players, get_current_day, is_murder_active
 )
 from config import GUEST_ROLE_NAME, PARLOR_CHANNEL_NAME
 from ollama_client import validate_and_respond_intake, generate_custom_player_dossier, generate_giles_dm_consultation
@@ -11,10 +11,49 @@ from ollama_client import validate_and_respond_intake, generate_custom_player_do
 logger = logging.getLogger("IntakeView")
 
 STEP_QUESTIONS = {
-    1: "Pray tell: What is your name and profession, and what is your true connection or relationship to Lord Julian Ravenscroft?",
+    1: "Pray tell: What is your name and profession, and what is your true, unvarnished history with Lord Julian Ravenscroft?",
     2: "And what distinct personal item, tool, or family heirloom of value did you insist on carrying in your luggage tonight?",
-    3: "Lastly... what pressing dispute, unpaid debt, desperate loan, or private tension do you urgently need settled with Lord Julian before midnight?"
+    3: "Lastly, in strictest confidence between us... what urgent dispute, unpaid debt, secret, or demand did you come to settle with Lord Julian before midnight?"
 }
+
+async def send_day2_alibi_prompts(bot: discord.Client) -> int:
+    """
+    Sends the Day 2 Morning-After Alibi & Corridor Sighting inquiry to all registered guests in DMs.
+    Marks intake_data['awaiting_alibi'] = True so their next DM reply is recorded as their official 11:42 PM alibi.
+    """
+    players = [dict(r) for r in get_all_players()]
+    sent_count = 0
+    for p in players:
+        if p.get("interview_step", 0) < 4:
+            continue
+        if p.get("alibi_claim"):
+            continue
+        try:
+            intake_data = json.loads(p.get("intake_data") or "{}")
+            intake_data["awaiting_alibi"] = True
+            update_player_alibi(p["discord_id"], "", intake_dict=intake_data)
+
+            user = await bot.fetch_user(p["discord_id"])
+            if not user:
+                continue
+            dm = await user.create_dm()
+            alibi_embed = discord.Embed(
+                title="⚡ URGENT MORNING INQUIRY — THE 11:42 PM BLACKOUT",
+                description=(
+                    f"**Giles:** *\"Pardon the urgent intrusion, **{p.get('character_title') or p.get('display_name')}**—a terrible tragedy has struck Ravenscroft Hall. "
+                    f"Lord Julian was found dead at the foot of the Grand Staircase when the chandeliers failed at 11:42 PM!\"*\n\n"
+                    f"📋 **OFFICIAL ALIBI & SIGHTING RECORD:**\n"
+                    f"**Where in the manor were you when the lights died at 11:42 PM, and what suspicious sound, shadow, or detail did you glimpse in the corridors?**\n\n"
+                    f"*(Reply directly to this DM to seal your official alibi into the estate investigation ledger).* "
+                ),
+                color=0x800000
+            )
+            alibi_embed.set_footer(text="Your stated alibi will be recorded in /my_dossier and known to the estate staff.")
+            await dm.send(embed=alibi_embed)
+            sent_count += 1
+        except Exception as e:
+            logger.warning(f"Failed to send Day 2 alibi prompt to {p.get('discord_id')}: {e}")
+    return sent_count
 
 async def finalize_guest_registration(user: discord.abc.User, bot: discord.Client) -> str:
     """
@@ -56,6 +95,10 @@ async def finalize_guest_registration(user: discord.abc.User, bot: discord.Clien
                     except Exception as e:
                         logger.warning(f"Could not post arrival in parlor: {e}")
 
+    # If the murder has already occurred when this guest finishes registration, immediately prompt for their 11:42 PM Alibi!
+    if is_murder_active():
+        await send_day2_alibi_prompts(bot)
+
     return player["character_title"]
 
 async def restart_guest_interview(user: discord.abc.User):
@@ -70,6 +113,7 @@ async def restart_guest_interview(user: discord.abc.User):
         secret_goal=" ",
         item_brought=" "
     )
+    update_player_alibi(user.id, "", intake_dict={})
     dm_channel = await user.create_dm()
     greeting = (
         f"**🕯️ Ravenscroft Hall — Fresh Registry Page**\n\n"
@@ -171,8 +215,33 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
             )
         return
 
-    # If already registered (step >= 4), this is a private 1-on-1 consultation with Giles!
+    # If already registered (step >= 4), check if they are answering the Day 2 Midnight Alibi prompt!
     if step >= 4:
+        intake_data = json.loads(player["intake_data"] or "{}")
+        is_alibi_reply = intake_data.get("awaiting_alibi", False) or content_clean.startswith("alibi:")
+        if is_alibi_reply:
+            alibi_text = message.content.strip()
+            if alibi_text.lower().startswith("alibi:"):
+                alibi_text = alibi_text[6:].strip()
+            if len(alibi_text.split()) < 3:
+                await message.channel.send(
+                    "**Giles:** *\"Pray give me a slightly clearer account, sir/madam—where in the manor were you at 11:42 PM, and what did you hear or see?\"*"
+                )
+                return
+            intake_data["awaiting_alibi"] = False
+            update_player_alibi(message.author.id, alibi_text, intake_dict=intake_data)
+            confirm_embed = discord.Embed(
+                title="📋 11:42 PM Alibi & Sighting Sealed",
+                description=(
+                    f"**Giles:** *\"Thank you. I have inscribed your statement into the official investigation ledger.\"*\n\n"
+                    f"📍 **Your Recorded Alibi & Sighting:**\n*\"{alibi_text}\"*\n\n"
+                    f"✅ **Added to your `/my_dossier`.** *(Tip: You may update it anytime by messaging `alibi: <your new statement>` here in DMs).*"
+                ),
+                color=0xD4AF37
+            )
+            await message.channel.send(embed=confirm_embed)
+            return
+
         from data.prompts import evaluate_interrogation_state
         from cogs.search_view import send_testimony_unlock_dm
         async with message.channel.typing():

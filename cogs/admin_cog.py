@@ -12,7 +12,7 @@ from database import (
     get_player, get_player_clues, is_murder_active, set_murder_active
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION, get_parlor_poll
-from cogs.intake_view import BeginRegistrationView, restart_guest_interview
+from cogs.intake_view import BeginRegistrationView, restart_guest_interview, send_day2_alibi_prompts
 from cogs.search_view import (
     RoomSearchView, build_room_embed, PresentEvidenceSelectView,
     CHANNEL_NAME_TO_ROOM_ID, ROOM_TO_NPC_INFO
@@ -284,7 +284,9 @@ class AdminCog(commands.Cog):
             color=0x4A0E4E
         )
         embed.add_field(name="🎒 Personal Item", value=player["item_brought"] or "None declared", inline=False)
-        embed.add_field(name="🤫 Dirty Secret", value=player["dirty_secret"], inline=False)
+        alibi_txt = dict(player).get("alibi_claim") or "*(Not yet recorded — Giles will request your 11:42 PM alibi once the investigation begins, or DM `alibi: <your statement>` to Giles)*"
+        embed.add_field(name="📍 Stated 11:42 PM Alibi & Sighting", value=alibi_txt, inline=False)
+        embed.add_field(name="🤫 Dirty Secret (Strictly Confidential)", value=player["dirty_secret"], inline=False)
         embed.add_field(name="🎯 Secret Objective", value=player["secret_goal"], inline=False)
         embed.add_field(name="🕯️ Candles Remaining", value=f"{player['tokens_remaining']} candles", inline=True)
         embed.add_field(name=f"🔍 Physical Evidence Found ({len(physical_clues)})", value=phys_summary[:1024], inline=False)
@@ -450,6 +452,10 @@ class AdminCog(commands.Cog):
             )
             await parlor.send(embed=inquest_embed, view=InquestView())
 
+        # If advancing into Post-Murder (Day 2+), send the 11:42 PM Alibi & Sighting prompt to any registered guest who hasn't recorded one yet
+        if day >= 2:
+            await send_day2_alibi_prompts(self.bot)
+
         await interaction.followup.send(f"✅ Advanced to Day {day}. Dispatches, Daily Poll, room headers, and candle refills complete.", ephemeral=True)
 
     @app_commands.command(name="test_refill", description="Test Mode: Refill 2 candles for all guests immediately.")
@@ -536,7 +542,13 @@ class AdminCog(commands.Cog):
         # 3. Update all room headers in place to Crime Scene descriptions & Dr. Abernathy post-murder state!
         await refresh_all_room_embeds(guild, self.bot.user)
 
-        await interaction.followup.send("⚡ The murder event has been triggered! Searches are now unlocked, room descriptions updated to crime-scene mode, and NPCs alerted.", ephemeral=True)
+        # 4. Dispatch Giles's urgent Day 2 Morning Alibi & Sighting inquiry to all registered guests in DMs!
+        alibi_count = await send_day2_alibi_prompts(self.bot)
+
+        await interaction.followup.send(
+            f"⚡ The murder event has been triggered! Searches are now unlocked, room descriptions updated to crime-scene mode, and Giles dispatched the 11:42 PM Alibi Inquiry to {alibi_count} guest(s) in DMs.",
+            ephemeral=True
+        )
 
     @app_commands.command(name="test_trigger_reveal", description="Test Mode: Tally ballots and trigger Hermes 3's Grand Inquest reveal monologue.")
     @app_commands.default_permissions(administrator=True)
