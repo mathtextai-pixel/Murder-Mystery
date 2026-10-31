@@ -33,14 +33,22 @@ bot = create_bot(enable_message_content=True)
 # Scheduled Daily Dispatch at 9:00 AM
 async def scheduled_morning_dispatch():
     from cogs.admin_cog import refresh_all_room_embeds
-    day = get_current_day() + 1
-    if day > 14:
+    current_day = get_current_day()
+    murder_active = is_murder_active()
+
+    # If murder has not been triggered yet (Day 1 pre-murder check-in holding pattern),
+    # pause the daily advance so the host can let all players check in at their own pace!
+    if not murder_active:
+        logger.info("Morning dispatch skipped: murder has not been triggered yet. Estate remains in Day 1 check-in reception.")
         return
-    
-    was_murder_active = is_murder_active()
+
+    # If Day 14 has finished, hold at Day 14 until the host triggers the final reveal command!
+    if current_day >= 14:
+        logger.info("Morning dispatch paused at Day 14: holding for host final reveal command.")
+        return
+
+    day = current_day + 1
     set_current_day(day)
-    if day >= 2:
-        set_murder_active(True)
     refill_all_tokens()
     logger.info(f"Fired scheduled morning dispatch for Day {day}")
 
@@ -50,21 +58,6 @@ async def scheduled_morning_dispatch():
         category = discord.utils.get(guild.categories, name=ESTATE_CATEGORY_NAME)
         guest_role = discord.utils.get(guild.roles, name=GUEST_ROLE_NAME)
         
-        # 0. If Day 2 and murder was not yet active, announce the 11:42 PM murder discovery in Parlor!
-        if day == 2 and not was_murder_active and parlor:
-            blackout_embed = discord.Embed(
-                title="⚡ MIDNIGHT BLACKOUT — 11:42 PM",
-                description=(
-                    "*(A violent thunderclap shattered the leaded glass windows during the night! The grand chandeliers flickered violently and died into pitch darkness. "
-                    "A muffled cry and a sickening crash echoed from the top of the Grand Staircase as the grandfather clock struck 11:42 PM).* \n\n"
-                    "**Giles:** *'Great heavens above! Remain where you are, ladies and gentlemen! Lord Julian... the master has fallen at the base of the stairs! "
-                    "He is gone! The estate gates are locked from the outside! No one leaves Ravenscroft Hall!'*"
-                ),
-                color=0x800000
-            )
-            blackout_embed.set_footer(text="🕯️ The crime scene is now active. All guests have received 2 search candles.")
-            await parlor.send(embed=blackout_embed)
-
         # 1. Post Dispatch in Bulletin
         dispatch_info = DISPATCHES.get(day, DISPATCHES[1])
         if bulletin:
@@ -102,7 +95,19 @@ async def scheduled_morning_dispatch():
                     await chan.set_permissions(guest_role, view_channel=True, send_messages=True)
                     await chan.edit(topic=f"🏰 {room['name']} | Status: 🔓 UNLOCKED FOR INQUIRY")
 
-        # 4. Refresh room header embeds in place
+        # 4. Day 14 Inquest button
+        if day == 14 and parlor:
+            inquest_embed = discord.Embed(
+                title="⚖️ THE GRAND INQUEST HAS BEGUN",
+                description=(
+                    "All guests are summoned to the Grand Parlor.\n"
+                    "Review your evidence and click below to submit your official accusation ballot!"
+                ),
+                color=0x800000
+            )
+            await parlor.send(embed=inquest_embed, view=InquestView())
+
+        # 5. Refresh room header embeds in place
         await refresh_all_room_embeds(guild, bot.user)
 
     if day >= 2:

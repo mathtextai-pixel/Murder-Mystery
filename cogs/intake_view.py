@@ -40,10 +40,10 @@ async def send_day2_alibi_prompts(bot: discord.Client) -> int:
             alibi_embed = discord.Embed(
                 title="⚡ URGENT MORNING INQUIRY — THE 11:42 PM BLACKOUT",
                 description=(
-                    f"**Giles:** *\"Pardon the urgent intrusion, **{p.get('character_title') or p.get('display_name')}**—a terrible tragedy has struck Ravenscroft Hall. "
-                    f"Lord Julian was found dead at the foot of the Grand Staircase when the chandeliers failed at 11:42 PM!\"*\n\n"
+                    f"**Filarello:** *\"Pardon the intrusion, **{p.get('character_title') or p.get('display_name')}**—though I imagine sleep was elusive in any event. "
+                    f"Lord Julian was discovered deceased at the foot of the Grand Staircase when the chandeliers failed at 11:42 PM. Highly inconvenient, and dreadfully untidy.\"*\n\n"
                     f"📋 **OFFICIAL ALIBI & SIGHTING RECORD:**\n"
-                    f"**Where in the manor were you when the lights died at 11:42 PM, and what suspicious sound, shadow, or detail did you glimpse in the corridors?**\n\n"
+                    f"**Where in the manor were you when the lights died at 11:42 PM, and what curious sound, shadow, or detail did you happen to glimpse in the dark?**\n\n"
                     f"*(Reply directly to this DM to seal your official alibi into the estate investigation ledger).* "
                 ),
                 color=0x800000
@@ -89,8 +89,8 @@ async def finalize_guest_registration(user: discord.abc.User, bot: discord.Clien
                 if parlor:
                     try:
                         await parlor.send(
-                            f"🔔 *(Giles swings open the heavy oak doors of the Grand Parlor)*\n"
-                            f"**Giles:** *\"Pray welcome **{player['character_title']}** ({member.mention}), who has just stepped in from the Solstice squall carrying **{player['item_brought']}**.\"*"
+                            f"🔔 *(Filarello smoothly opens the heavy oak doors of the Grand Parlor, bowing with dry elegance)*\n"
+                            f"**Filarello:** *\"Pray welcome **{player['character_title']}** ({member.mention}), who has managed to cross the flooded causeway carrying **{player['item_brought']}**. Do make yourselves civil.\"*"
                         )
                     except Exception as e:
                         logger.warning(f"Could not post arrival in parlor: {e}")
@@ -117,7 +117,7 @@ async def restart_guest_interview(user: discord.abc.User):
     dm_channel = await user.create_dm()
     greeting = (
         f"**🕯️ Ravenscroft Hall — Fresh Registry Page**\n\n"
-        f"**Giles:** *\"My apologies for any clerical misunderstanding, {user.display_name}. Let us strike that page from the ledger and begin anew.\"*\n\n"
+        f"**Filarello:** *\"A clean sheet, then. We all deserve a second chance—some of us, several dozen. Let us begin anew, {user.display_name}.\"*\n\n"
         f"**Question 1:** {STEP_QUESTIONS[1]}\n\n"
         f"*(Please reply directly in this DM to answer).* "
     )
@@ -168,14 +168,14 @@ class BeginRegistrationView(discord.ui.View):
             dm_channel = await user.create_dm()
             greeting = (
                 f"**🕯️ Ravenscroft Hall — Private Reception**\n\n"
-                f"Good evening, {user.display_name}. I am **Giles**, steward of Ravenscroft Hall.\n"
-                f"Before Lord Julian receives you tonight, I must record your arrival in the estate guest registry.\n\n"
+                f"Good evening, {user.display_name}. I am **Filarello**, house steward of Ravenscroft Hall.\n"
+                f"Before Lord Julian receives you tonight, I am obliged to record your arrival in the estate ledger.\n\n"
                 f"**Question 1:** {STEP_QUESTIONS[1]}\n\n"
                 f"*(Please reply directly in this DM to answer).* "
             )
             await dm_channel.send(greeting)
             await interaction.response.send_message(
-                "📬 Giles has sent your private registry invitation to your Direct Messages! Check your DMs to proceed.",
+                "📬 Filarello has sent your private registry invitation to your Direct Messages! Check your DMs to proceed.",
                 ephemeral=True
             )
         except discord.Forbidden:
@@ -211,7 +211,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
             )
         else:
             await message.channel.send(
-                "**Giles:** *\"Pray forgive me—please press **✅ Confirm & Enter Estate** on the dossier above if the details are satisfactory, or press **🔄 Redo Interview** if you wish to revise your entry.\"*"
+                "**Filarello:** *\"Patience, my dear guest. Pray press **✅ Confirm & Enter Estate** above if your dossier satisfies you, or **🔄 Redo Interview** if you wish to adjust your arrival story.\"*"
             )
         return
 
@@ -225,7 +225,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
                 alibi_text = alibi_text[6:].strip()
             if len(alibi_text.split()) < 3:
                 await message.channel.send(
-                    "**Giles:** *\"Pray give me a slightly clearer account, sir/madam—where in the manor were you at 11:42 PM, and what did you hear or see?\"*"
+                    "**Filarello:** *\"Come now, sir or madam—surely you can offer a slightly more persuasive alibi than that. Where were you at 11:42 PM, and what did you see?\"*"
                 )
                 return
             intake_data["awaiting_alibi"] = False
@@ -233,7 +233,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
             confirm_embed = discord.Embed(
                 title="📋 11:42 PM Alibi & Sighting Sealed",
                 description=(
-                    f"**Giles:** *\"Thank you. I have inscribed your statement into the official investigation ledger.\"*\n\n"
+                    f"**Filarello:** *\"Recorded with absolute discretion. Whether the constable believes it remains to be seen.\"*\n\n"
                     f"📍 **Your Recorded Alibi & Sighting:**\n*\"{alibi_text}\"*\n\n"
                     f"✅ **Added to your `/my_dossier`.** *(Tip: You may update it anytime by messaging `alibi: <your new statement>` here in DMs).*"
                 ),
@@ -260,7 +260,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
                 murder_active,
                 interrogation_directive=directive
             )
-        await message.channel.send(f"**Giles (in confidence):** {reply}")
+        await message.channel.send(f"**Filarello (in confidence):** {reply}")
         if newly_unlocked:
             await send_testimony_unlock_dm(message.author, newly_unlocked)
         return
@@ -273,7 +273,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
         is_accepted, reply_text = await validate_and_respond_intake(step, message.content, history)
 
     if not is_accepted:
-        await message.channel.send(f"**Giles:** {reply_text}")
+        await message.channel.send(f"**Filarello:** {reply_text}")
         return
 
     # Accepted: store answer
@@ -285,7 +285,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
     if step < 3:
         next_step = step + 1
         update_player_interview(message.author.id, step=next_step, intake_dict=intake_data)
-        next_prompt = f"**Giles:** {reply_text}\n\n**Question {next_step}:** {STEP_QUESTIONS[next_step]}"
+        next_prompt = f"**Filarello:** {reply_text}\n\n**Question {next_step}:** {STEP_QUESTIONS[next_step]}"
         await message.channel.send(next_prompt)
     else:
         # Step 3 accepted -> generate custom persona preview and ask for confirmation!
@@ -319,7 +319,7 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
 
         final_packet = (
             f"**🕯️ Ravenscroft Hall — Draft Guest Dossier**\n\n"
-            f"**Giles:** {reply_text}\n\n"
+            f"**Filarello:** {reply_text}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📜 **PLEASE REVIEW YOUR GENERATED DOSSIER**\n"
             f"• **Public Identity:** {char_title}\n"
@@ -327,6 +327,6 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
             f"• **🤫 YOUR DIRTY SECRET:** {dirty_secret}\n"
             f"• **🎯 YOUR SECRET OBJECTIVE:** {secret_goal}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"*Does this accurately reflect your character? Click **✅ Confirm & Enter Estate** below to unlock the manor doors, or click **🔄 Redo Interview** if Giles misrecorded any detail.*"
+            f"*Does this accurately reflect your character? Click **✅ Confirm & Enter Estate** below to unlock the manor doors, or click **🔄 Redo Interview** if Filarello misrecorded any detail.*"
         )
         await message.channel.send(final_packet, view=DossierConfirmationView())

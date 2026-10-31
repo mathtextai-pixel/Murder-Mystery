@@ -22,7 +22,7 @@ NPC_TRIGGER_WORDS = {
     "gable": ["gable", "mrs. gable", "mrs gable", "cook", "housekeeper", "ma'am"],
     "angus": ["angus", "old angus", "groundskeeper", "mechanic", "scotsman"],
     "higgins": ["higgins", "constable", "constable higgins", "police", "radio", "officer"],
-    "giles": ["giles", "butler", "steward"],
+    "giles": ["filarello", "giles", "butler", "steward"],
     "abernathy": ["abernathy", "doctor", "doc", "physician", "coroner", "dr abernathy", "dr. abernathy", "examiner"]
 }
 
@@ -38,7 +38,7 @@ BONUS_CANDLE_MESSAGES = {
     "gable": "\n\n🕯️ *[Mrs. Gable presses a fresh tallow candle into your hand: 'Here, dearie—take this from the larder box. You'll need it in the drafty halls tonight!'] (+1 Candle Added to your supply)*",
     "angus": "\n\n🕯️ *[Old Angus tosses you an extra lantern wick: 'Aye... at least someone in this house is asking proper questions. Don't go burning the place down.'] (+1 Candle Added to your supply)*",
     "higgins": "\n\n🕯️ *[Constable Higgins crackles over the wire: 'Procedural cooperation acknowledged. Keep this emergency flare in reserve.'] (+1 Candle Added to your supply)*",
-    "giles": "\n\n🕯️ *[Giles retrieves a long silver taper from his waistcoat: 'For your diligence in estate inquiries, pray accept this additional candle for your rounds.'] (+1 Candle Added to your supply)*",
+    "giles": "\n\n🕯️ *[Filarello retrieves a slender silver taper with an understated flick of his wrist: 'For your diligence—or perhaps morbid curiosity. Do try not to set the drapes ablaze.'] (+1 Candle Added to your supply)*",
     "abernathy": "\n\n🕯️ *[Dr. Abernathy adjusts his spectacles and hands you a small brass inspection lamp from his black leather bag: 'Here—take this surgical lamp. If you are examining dark corners of this house, you will need proper illumination.'] (+1 Candle Added to your supply)*"
 }
 
@@ -130,7 +130,7 @@ class NpcCog(commands.Cog):
 
         # Generate NPC dialogue using local Hermes 3
         speaker_name = message.author.display_name
-        npc_display_name = npc_status["name"] if npc_status else "Giles"
+        npc_display_name = npc_status["name"] if npc_status else "Filarello"
 
         async with message.channel.typing():
             murder_active = is_murder_active()

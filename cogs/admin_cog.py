@@ -45,8 +45,8 @@ NPC_MOVEMENT_NOTICES = {
         "off": "*(A burst of howling maritime static drowns the frequency, followed by silence. The mainland radio link is dead for now).* "
     },
     "giles": {
-        "on": "*(Giles steps into the Grand Parlor with an impeccable bow, setting out fresh glasses on the silver tray).* ",
-        "off": "*(Giles excuses himself to tend to estate records in the West Wing).* "
+        "on": "*(Filarello steps into the Grand Parlor with an easy, elegant grace, running a hand through his dark hair as he sets out crystal glasses).* ",
+        "off": "*(Filarello excuses himself with a faint, knowing smirk to tend to estate matters in the West Wing).* "
     },
     "abernathy": {
         "on": "*(Dr. Abernathy unclasps his black leather physician's bag with a sharp click, adjusting his round wire spectacles to examine the crime scene).* ",
@@ -88,10 +88,10 @@ class AdminCog(commands.Cog):
             gates_channel = await category.create_text_channel(
                 GATES_CHANNEL_NAME, 
                 overwrites=overwrites,
-                topic="Register your arrival with Giles the Butler before entering the estate."
+                topic="Register your arrival with Filarello the Butler before entering the estate."
             )
         else:
-            await gates_channel.edit(topic="Register your arrival with Giles the Butler before entering the estate.")
+            await gates_channel.edit(topic="Register your arrival with Filarello the Butler before entering the estate.")
             await gates_channel.set_permissions(everyone_role, view_channel=True, send_messages=False)
             if not deep_clean:
                 try:
@@ -104,7 +104,7 @@ class AdminCog(commands.Cog):
             description=(
                 "The Solstice storm has severed all contact with the mainland.\n"
                 "Before Lord Julian Ravenscroft receives you tonight, all guests must register.\n\n"
-                "Click the button below to begin your private registration with **Giles the Butler** in your DMs."
+                "Click the button below to begin your private registration with **Filarello the Butler** in your DMs."
             ),
             color=0xD4AF37
         )
@@ -161,7 +161,7 @@ class AdminCog(commands.Cog):
                     pass
 
         await parlor_channel.send(
-            "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Giles here."
+            "🔥 **The Grand Parlor Hearth is lit.** Guests may converse, dispute alibis, and interrogate Filarello here."
         )
         p1 = get_parlor_poll(1)
         if p1:
@@ -255,7 +255,7 @@ class AdminCog(commands.Cog):
         player = get_player(user_id)
         if not player or player["interview_step"] < 4:
             await interaction.response.send_message(
-                "You haven't completed your intake registration with Giles yet! Visit `#reception-gates`.", 
+                "You haven't completed your intake registration with Filarello yet! Visit `#reception-gates`.", 
                 ephemeral=True
             )
             return
@@ -284,7 +284,7 @@ class AdminCog(commands.Cog):
             color=0x4A0E4E
         )
         embed.add_field(name="🎒 Personal Item", value=player["item_brought"] or "None declared", inline=False)
-        alibi_txt = dict(player).get("alibi_claim") or "*(Not yet recorded — Giles will request your 11:42 PM alibi once the investigation begins, or DM `alibi: <your statement>` to Giles)*"
+        alibi_txt = dict(player).get("alibi_claim") or "*(Not yet recorded — Filarello will request your 11:42 PM alibi once the investigation begins, or DM `alibi: <your statement>` to Filarello)*"
         embed.add_field(name="📍 Stated 11:42 PM Alibi & Sighting", value=alibi_txt, inline=False)
         embed.add_field(name="🤫 Dirty Secret (Strictly Confidential)", value=player["dirty_secret"], inline=False)
         embed.add_field(name="🎯 Secret Objective", value=player["secret_goal"], inline=False)
@@ -300,7 +300,7 @@ class AdminCog(commands.Cog):
         player = get_player(user_id)
         if not player or player["interview_step"] < 4:
             await interaction.response.send_message(
-                "You must complete your guest registration with Giles at `#reception-gates` first.",
+                "You must complete your guest registration with Filarello at `#reception-gates` first.",
                 ephemeral=True
             )
             return
@@ -320,7 +320,7 @@ class AdminCog(commands.Cog):
             await interaction.response.send_message(
                 "👤 **No Staff Member Present Here.**\n"
                 "Use `/present_evidence` or the **🗂️ Present Evidence** button inside a chamber with an attendant:\n"
-                "• **Giles** in `#the-grand-parlor` (or in your DMs)\n"
+                "• **Filarello** in `#the-grand-parlor` (or in your DMs)\n"
                 "• **Dr. Abernathy** in `#the-study`\n"
                 "• **Mrs. Gable** in `#the-kitchen-and-pantry`\n"
                 "• **Old Angus** in `#the-carriage-house` or `#the-wine-cellar`\n"
@@ -359,13 +359,13 @@ class AdminCog(commands.Cog):
             ephemeral=True
         )
 
-    @app_commands.command(name="redo_interview", description="Restart your 3-question registration interview with Giles in DMs if your dossier needs fixing.")
+    @app_commands.command(name="redo_interview", description="Restart your 3-question registration interview with Filarello in DMs if your dossier needs fixing.")
     async def redo_interview_cmd(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
             await restart_guest_interview(interaction.user)
             await interaction.followup.send(
-                "📬 Giles has opened a fresh page in the guest registry! Check your Direct Messages to redo your 3-question interview.",
+                "📬 Filarello has opened a fresh page in the guest registry! Check your Direct Messages to redo your 3-question interview.",
                 ephemeral=True
             )
         except Exception as e:
@@ -491,6 +491,44 @@ class AdminCog(commands.Cog):
         await refresh_all_room_embeds(guild, self.bot.user)
         await interaction.followup.send(f"✅ Set {npc.capitalize()} to {status_text} and updated room occupancy badge.", ephemeral=True)
 
+    @app_commands.command(name="trigger_murder", description="Host command: Trigger the 11:42 PM murder blackout, unlock searches, and begin Day 2.")
+    @app_commands.default_permissions(administrator=True)
+    async def trigger_murder_cmd(self, interaction: discord.Interaction):
+        await self.test_trigger_murder(interaction)
+
+    @app_commands.command(name="trigger_final_inquest", description="Host command: Pause the clock, summon everyone to the Grand Parlor, and open the accusation ballot.")
+    @app_commands.default_permissions(administrator=True)
+    async def trigger_final_inquest_cmd(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        set_current_day(14)
+        guild = interaction.guild
+        parlor = discord.utils.get(guild.text_channels, name=PARLOR_CHANNEL_NAME)
+        target_channel = parlor if parlor else interaction.channel
+
+        inquest_embed = discord.Embed(
+            title="⚖️ THE GRAND INQUEST HAS OFFICIALLY BEGUN",
+            description=(
+                "**Filarello:** *\"Ladies and gentlemen, the hour has arrived. Fourteen days of whispers, searching dark corridors, and nursing private secrets.* \n\n"
+                "*The county authorities will reach the manor shortly. Before they arrive, Lord Julian's estate requires our official conclusion.* \n\n"
+                "**Review your evidence with `/my_dossier` and click below to submit your official Accusation Ballot.**\n"
+                "Once all ballots are sealed, I shall present the final truth of Ravenscroft Hall.\"*"
+            ),
+            color=0x800000
+        )
+        inquest_embed.set_footer(text="Ballots are private until the Grand Inquest reveal monologue.")
+        await target_channel.send(embed=inquest_embed, view=InquestView())
+        await interaction.followup.send("⚖️ The Final Inquest has been opened in #the-grand-parlor! The game clock is paused. Guests may now submit their ballots.")
+
+    @app_commands.command(name="trigger_reveal", description="Host command: Tally ballots, crown the Master Sleuth, and deliver Filarello's reveal monologue.")
+    @app_commands.default_permissions(administrator=True)
+    async def trigger_reveal_cmd(self, interaction: discord.Interaction):
+        await self.test_trigger_reveal(interaction)
+
+    @app_commands.command(name="reset_game", description="Host command: Full factory reset. Wipes all chat, revokes guest roles, resets to Day 1 pre-murder.")
+    @app_commands.default_permissions(administrator=True)
+    async def reset_game_cmd(self, interaction: discord.Interaction):
+        await self.test_reset_game(interaction)
+
     @app_commands.command(name="test_trigger_murder", description="Test Mode: Trigger the dramatic 11:42 PM murder blackout and unlock searches.")
     @app_commands.default_permissions(administrator=True)
     async def test_trigger_murder(self, interaction: discord.Interaction):
@@ -510,8 +548,8 @@ class AdminCog(commands.Cog):
                 description=(
                     "*(A violent thunderclap shatters the leaded glass windows! The grand chandeliers flicker violently and die into pitch darkness. "
                     "A muffled cry and a sickening crash echo from the top of the Grand Staircase. The grandfather clock strikes 11:42 PM).* \n\n"
-                    "**Giles:** *'Great heavens above! Remain where you are, ladies and gentlemen! Lord Julian... the master has fallen at the base of the stairs! "
-                    "He is gone! The estate gates are locked from the outside! No one leaves Ravenscroft Hall!'*"
+                    "**Filarello:** *'Good heavens... How dreadfully inconvenient. Ladies and gentlemen, pray remain where you are. Lord Julian... the master has fallen at the base of the stairs. "
+                    "He is quite dead, and the estate gates have been locked from without. It appears none of us are leaving.'*"
                 ),
                 color=0x800000
             )
@@ -542,11 +580,11 @@ class AdminCog(commands.Cog):
         # 3. Update all room headers in place to Crime Scene descriptions & Dr. Abernathy post-murder state!
         await refresh_all_room_embeds(guild, self.bot.user)
 
-        # 4. Dispatch Giles's urgent Day 2 Morning Alibi & Sighting inquiry to all registered guests in DMs!
+        # 4. Dispatch Filarello's urgent Day 2 Morning Alibi & Sighting inquiry to all registered guests in DMs!
         alibi_count = await send_day2_alibi_prompts(self.bot)
 
         await interaction.followup.send(
-            f"⚡ The murder event has been triggered! Searches are now unlocked, room descriptions updated to crime-scene mode, and Giles dispatched the 11:42 PM Alibi Inquiry to {alibi_count} guest(s) in DMs.",
+            f"⚡ The murder event has been triggered! Searches are now unlocked, room descriptions updated to crime-scene mode, and Filarello dispatched the 11:42 PM Alibi Inquiry to {alibi_count} guest(s) in DMs.",
             ephemeral=True
         )
 
@@ -658,14 +696,14 @@ class AdminCog(commands.Cog):
         count = await send_nightly_summaries_to_all(self.bot)
         await interaction.followup.send(f"📬 Delivered personalized Nightly Dispatches to {count} registered guest(s) in DMs!", ephemeral=True)
 
-    @app_commands.command(name="test_send_rumor", description="Test Mode: Slip a secret folded note from Giles under a specific player's door.")
+    @app_commands.command(name="test_send_rumor", description="Test Mode: Slip a secret folded note from Filarello under a specific player's door.")
     @app_commands.default_permissions(administrator=True)
     async def test_send_rumor(self, interaction: discord.Interaction, guest: discord.Member, rumor_text: str):
         try:
             dm = await guest.create_dm()
             rumor_embed = discord.Embed(
-                title="✉️ DISCREET NOTE FROM GILES",
-                description=f"*(A sealed parchment slip was slid beneath your bedchamber door)*:\n\n*\"{rumor_text}\"*\n\n— *Giles, in strictest confidence*",
+                title="✉️ DISCREET NOTE FROM FILARELLO",
+                description=f"*(A sealed parchment slip was slid beneath your bedchamber door)*:\n\n*\"{rumor_text}\"*\n\n— *Filarello, in strictest confidence*",
                 color=0xD4AF37
             )
             await dm.send(embed=rumor_embed)
@@ -730,7 +768,7 @@ async def send_nightly_summaries_to_all(bot: commands.Bot) -> int:
             embed.add_field(name="📜 Evidence in Your Pocket", value=recent_clues_txt, inline=False)
             embed.add_field(name="🤫 Personal Reminder", value=p["secret_goal"] or "Keep your actions hidden from the other guests.", inline=False)
             embed.add_field(name="🕯️ Morning Provisions", value="2 fresh candles will be placed on your breakfast tray tomorrow at 9:00 AM.", inline=False)
-            embed.set_footer(text="Sleep lightly, sir/madam. — Giles, Estate Steward")
+            embed.set_footer(text="Sleep lightly, sir/madam. — Filarello, Estate Steward")
             await dm.send(embed=embed)
             delivered += 1
         except Exception as e:

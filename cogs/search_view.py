@@ -25,9 +25,9 @@ CHANNEL_NAME_TO_ROOM_ID = {
 ROOM_TO_NPC_INFO = {
     "parlor": (
         "giles",
-        "Giles (Senior Steward)",
-        "Present welcoming guests by the parlor hearth",
-        "Present maintaining order in the Grand Parlor",
+        "Filarello (Senior Steward)",
+        "Present pouring aperitifs and appraising the room by the hearth",
+        "Present maintaining dry decorum in the Grand Parlor",
         "Attending to estate matters in the West Wing"
     ),
     "kitchen": (
@@ -218,7 +218,7 @@ class RoomSearchView(discord.ui.View):
         
         if not player or player["interview_step"] < 4:
             await interaction.response.send_message(
-                "You must complete your guest registration with Giles at `#reception-gates` before searching the estate.",
+                "You must complete your guest registration with Filarello at `#reception-gates` before searching the estate.",
                 ephemeral=True
             )
             return
@@ -245,7 +245,7 @@ class RoomSearchView(discord.ui.View):
         if player["tokens_remaining"] <= 0:
             await interaction.response.send_message(
                 "🕯️ **Your candles have burned down to the wick.**\n"
-                "You have no search candles remaining today. Giles will replenish them tomorrow morning at 9:00 AM.\n"
+                "You have no search candles remaining today. Filarello will replenish them tomorrow morning at 9:00 AM.\n"
                 "*(Hint: Interrogating an on-shift staff member can earn you a bonus candle!)*",
                 ephemeral=True
             )
@@ -342,7 +342,7 @@ class RoomSearchView(discord.ui.View):
         player = get_player(user_id)
         if not player or player["interview_step"] < 4:
             await interaction.response.send_message(
-                "You must complete your guest registration with Giles at `#reception-gates` first.",
+                "You must complete your guest registration with Filarello at `#reception-gates` first.",
                 ephemeral=True
             )
             return
@@ -363,7 +363,7 @@ class RoomSearchView(discord.ui.View):
                 "👤 **No Staff Member Present Here.**\n"
                 "To cross-examine a witness with your physical evidence, visit a room with an attendant:\n"
                 "• **Dr. Abernathy** in `#the-study`\n"
-                "• **Giles** in `#the-grand-parlor` (or use `/present_evidence`)\n"
+                "• **Filarello** in `#the-grand-parlor` (or use `/present_evidence`)\n"
                 "• **Mrs. Gable** in `#the-kitchen-and-pantry`\n"
                 "• **Old Angus** in `#the-carriage-house` or `#the-wine-cellar`\n"
                 "• **Constable Higgins** in `#the-radio-room`",

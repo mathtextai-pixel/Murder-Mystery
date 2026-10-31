@@ -356,20 +356,20 @@ NPC_TESTIMONIES = {
             "id": "giles_ultimatum",
             "tier": 1,
             "title": "Testimony: Julian's Solstice Ultimatum",
-            "npc_name": "Giles",
+            "npc_name": "Filarello",
             "keywords": ["julian", "will", "argument", "dinner", "speech", "debt", "blackmail", "why", "motive", "secret", "ledger", "disinherit", "money", "fighting"],
             "required_clues": [],
-            "clue_text": "Giles discretely revealed that Lord Julian summoned this specific circle of guests to announce a revised will at midnight—and kept a private black-ledger of debts and indiscretions in his study.",
+            "clue_text": "Filarello dryly revealed that Lord Julian summoned this specific circle of guests to announce a revised will at midnight—and kept a private black-ledger of debts and indiscretions in his study.",
             "prompt_unlock": "REVEAL THIS CLUE NOW: Discretely admit that Lord Julian summoned the guests tonight to announce a sweeping revision to his estate will, and that he kept a private black-ledger of secrets and debts locked in his study."
         },
         {
             "id": "giles_clock_panel",
             "tier": 2,
             "title": "Testimony: The Grandfather Clock Secret Panel",
-            "npc_name": "Giles",
+            "npc_name": "Filarello",
             "keywords": ["clock", "grandfather", "passage", "skeleton", "key", "fuse", "blackout", "lights", "burn", "scrap", "attic", "barnaby", "finch", "steward", "corridor"],
             "required_clues": ["Scorched Document Scrap", "Torn Ledger Page", "Master Skeleton Key", "Master Switchboard Fuse", "Antique Portrait of Barnaby"],
-            "clue_text": "Presented with hard evidence of an inside job, Giles conceded that only two Master Skeleton Keys exist—and that the heavy grandfather clock at the top of the Grand Staircase conceals a secret service panel used by former steward Barnaby Finch.",
+            "clue_text": "Presented with hard evidence of an inside job, Filarello conceded that only two Master Skeleton Keys exist—and that the heavy grandfather clock at the top of the Grand Staircase conceals a secret service panel used by former steward Barnaby Finch.",
             "prompt_unlock": "REVEAL THIS CROSS-EXAMINATION CLUE NOW: Seeing the compelling physical evidence presented by the guest, lower your voice and admit that only two Master Skeleton Keys ever existed—yours, and the one kept by your disgraced predecessor, Barnaby Finch. Reveal that the grandfather clock on the upper landing conceals a hidden service panel opening directly behind where Lord Julian stood at 11:42 PM!",
             "locked_hint": "Maintain polite reserve—state that while you suspect someone with intimate knowledge of the house's architecture was involved, you would need to see hard physical proof (such as a Master Skeleton Key, a pulled switchboard fuse, or burned estate documents) before speculating on secret domestic passages."
         }
@@ -381,7 +381,7 @@ NPC_TESTIMONIES = {
 DISPATCHES = {
     1: {
         "headline": "THE ARRIVAL AT RAVENSCROFT HALL",
-        "body": "Welcome, esteemed guests. The Solstice storm has arrived, washing out the coastal bridge to the mainland. Lord Julian Ravenscroft bids you make yourselves at home in the public rooms. Please register your arrival with Giles at the front gates.",
+        "body": "Welcome, esteemed guests. The Solstice storm has arrived, washing out the coastal bridge to the mainland. Lord Julian Ravenscroft bids you make yourselves at home in the public rooms. Please register your arrival with Filarello at the front gates.",
         "unlocks": []
     },
     2: {
@@ -391,7 +391,7 @@ DISPATCHES = {
     },
     3: {
         "headline": "THE SCENT OF INK & ASH",
-        "body": "Giles notes that several documents in the Grand Study were disturbed overnight. Ink stains and scorched paper fragments suggest not all guests spent their evening sleeping.",
+        "body": "Filarello notes that several documents in the Grand Study were disturbed overnight. Ink stains and scorched paper fragments suggest not all guests spent their evening sleeping.",
         "unlocks": []
     },
     4: {
@@ -568,7 +568,7 @@ PARLOR_POLLS = {
         "options": [
             "Yes — Complete transparency now!",
             "No — An outrageous violation of personal privacy!",
-            "Only under Giles's strict personal supervision",
+            "Only under Filarello's strict personal supervision",
             "Only once the estate grounds are secured from the squall"
         ]
     },
@@ -640,7 +640,7 @@ PARLOR_POLLS = {
         "options": [
             "One of the guests during their candle searches",
             "Barnaby Finch during his years as steward",
-            "Giles the Butler during his evening rounds",
+            "Filarello the Butler during his evening rounds",
             "Lord Julian before his death"
         ]
     },
@@ -659,7 +659,7 @@ PARLOR_POLLS = {
             "The sharpest detective among us",
             "The guest who guarded their secrets best",
             "Nobody — Barnaby Finch outsmarted everyone!",
-            "Giles the Butler"
+            "Filarello the Butler"
         ]
     }
 }

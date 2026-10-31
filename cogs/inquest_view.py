@@ -55,7 +55,7 @@ class AccusationModal(discord.ui.Modal, title="⚖️ The Ravenscroft Inquest Ba
                 f"• **Accused Killer:** {self.killer.value}\n"
                 f"• **Alleged Weapon:** {self.weapon.value}\n"
                 f"• **Suspected Passage:** {self.passage.value}\n\n"
-                f"Once all guests have submitted their findings, Giles will present the final truth!"
+                f"Once all guests have submitted their findings, Filarello will present the final truth!"
             ),
             color=0x800000 # Burgundy
         )
