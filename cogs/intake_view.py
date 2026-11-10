@@ -3,7 +3,9 @@ import json
 import logging
 from database import (
     get_player, create_or_get_player, update_player_interview, update_player_alibi,
-    get_all_players, get_current_day, is_murder_active
+    get_all_players, get_current_day, is_murder_active,
+    add_dynamic_room_clue, clear_player_dynamic_clues,
+    add_witness_sighting, clear_player_witness_sightings
 )
 from config import GUEST_ROLE_NAME, PARLOR_CHANNEL_NAME
 from ollama_client import validate_and_respond_intake, generate_custom_player_dossier, generate_giles_dm_consultation
@@ -12,8 +14,9 @@ logger = logging.getLogger("IntakeView")
 
 STEP_QUESTIONS = {
     1: "Pray tell: What is your name and profession, and what is your true, unvarnished history with Lord Julian Ravenscroft?",
-    2: "And what distinct personal item, tool, or family heirloom of value did you insist on carrying in your luggage tonight?",
-    3: "Lastly, in strictest confidence between us... what urgent dispute, unpaid debt, secret, or demand did you come to settle with Lord Julian before midnight?"
+    2: "And what distinct personal item or heirloom did you insist on carrying in your luggage tonight? (Please describe its materials, markings, or engravings).",
+    3: "Every individual carries a trademark habit, scent, or personal accessory. What telltale signature do you carry? (e.g. cherry pipe tobacco, violet writing ink, silver-tipped cane, gold monocle, distinct perfume).",
+    4: "Lastly, in strictest confidence between us... what urgent dispute, unpaid debt, stolen property, or grievance did you come to settle with Lord Julian before midnight?"
 }
 
 async def send_day2_alibi_prompts(bot: discord.Client) -> int:
@@ -24,7 +27,7 @@ async def send_day2_alibi_prompts(bot: discord.Client) -> int:
     players = [dict(r) for r in get_all_players()]
     sent_count = 0
     for p in players:
-        if p.get("interview_step", 0) < 4:
+        if p.get("interview_step", 0) < 5:
             continue
         if p.get("alibi_claim"):
             continue
@@ -37,13 +40,16 @@ async def send_day2_alibi_prompts(bot: discord.Client) -> int:
             if not user:
                 continue
             dm = await user.create_dm()
+            breadcrumb = intake_data.get("corridor_breadcrumb", "")
+            breadcrumb_txt = f"\n\n👁️ **A Telltale Memory From the Blackout:**\n*\"{breadcrumb}\"*\n*(You alone noticed this in the darkness. You may choose to share or withhold this sighting when questioned).* " if breadcrumb else ""
             alibi_embed = discord.Embed(
                 title="⚡ URGENT MORNING INQUIRY — THE 11:42 PM BLACKOUT",
                 description=(
                     f"**Filarello:** *\"Pardon the intrusion, **{p.get('character_title') or p.get('display_name')}**—though I imagine sleep was elusive in any event. "
                     f"Lord Julian was discovered deceased at the foot of the Grand Staircase when the chandeliers failed at 11:42 PM. Highly inconvenient, and dreadfully untidy.\"*\n\n"
                     f"📋 **OFFICIAL ALIBI & SIGHTING RECORD:**\n"
-                    f"**Where in the manor were you when the lights died at 11:42 PM, and what curious sound, shadow, or detail did you happen to glimpse in the dark?**\n\n"
+                    f"**Where in the manor were you when the lights died at 11:42 PM, and what curious sound, shadow, or detail did you happen to glimpse in the dark?**"
+                    f"{breadcrumb_txt}\n\n"
                     f"*(Reply directly to this DM to seal your official alibi into the estate investigation ledger).* "
                 ),
                 color=0x800000
@@ -68,7 +74,28 @@ async def finalize_guest_registration(user: discord.abc.User, bot: discord.Clien
     already_announced = intake_data.get("announced_in_parlor", False)
     intake_data["announced_in_parlor"] = True
 
-    update_player_interview(user.id, step=4, intake_dict=intake_data)
+    # Seed the player's 2 dynamic clues into the estate rooms if not already seeded
+    pending_clues = intake_data.get("pending_clues", [])
+    if pending_clues and not intake_data.get("clues_seeded", False):
+        clear_player_dynamic_clues(user.id)
+        for clue in pending_clues:
+            add_dynamic_room_clue(
+                source_discord_id=user.id,
+                room_id=clue.get("room_id", "study"),
+                clue_title=clue.get("title", "Mysterious Trace"),
+                clue_text=clue.get("text", "A curious physical trace left behind.")
+            )
+        intake_data["clues_seeded"] = True
+
+    # Seed the NPC witness sighting if not already seeded
+    witness_npc = intake_data.get("witness_npc")
+    witness_sighting = intake_data.get("witness_sighting")
+    if witness_npc and witness_sighting and not intake_data.get("sighting_seeded", False):
+        clear_player_witness_sightings(user.id)
+        add_witness_sighting(user.id, witness_npc, witness_sighting)
+        intake_data["sighting_seeded"] = True
+
+    update_player_interview(user.id, step=5, intake_dict=intake_data)
 
     for guild in bot.guilds:
         try:
@@ -104,6 +131,8 @@ async def finalize_guest_registration(user: discord.abc.User, bot: discord.Clien
 async def restart_guest_interview(user: discord.abc.User):
     """Resets a guest's interview back to Question 1 and sends the prompt in DMs."""
     create_or_get_player(user.id, user.name, user.display_name)
+    clear_player_dynamic_clues(user.id)
+    clear_player_witness_sightings(user.id)
     update_player_interview(
         user.id,
         step=1,
@@ -154,9 +183,16 @@ class BeginRegistrationView(discord.ui.View):
         user = interaction.user
         player = create_or_get_player(user.id, user.name, user.display_name)
         
-        if player["interview_step"] >= 4:
+        if player["interview_step"] >= 5:
             await interaction.response.send_message(
                 f"You are already registered as **{player['character_title']}**! Step inside the estate rooms, or click **Redo Interview** below if you wish to rewrite your backstory.",
+                view=DossierConfirmationView(),
+                ephemeral=True
+            )
+            return
+        elif player["interview_step"] in (35, 45):
+            await interaction.response.send_message(
+                f"Your draft dossier is awaiting confirmation! Check your DMs with Filarello to confirm or redo.",
                 view=DossierConfirmationView(),
                 ephemeral=True
             )
@@ -202,8 +238,8 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
 
     step = player["interview_step"]
 
-    # Step 35 = Waiting for Dossier Confirmation
-    if step == 35:
+    # Step 45 (or legacy 35) = Waiting for Dossier Confirmation
+    if step in (35, 45):
         if content_clean in ("yes", "confirm", "accept", "ok", "looks good"):
             title = await finalize_guest_registration(message.author, bot)
             await message.channel.send(
@@ -215,8 +251,8 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
             )
         return
 
-    # If already registered (step >= 4), check if they are answering the Day 2 Midnight Alibi prompt!
-    if step >= 4:
+    # If already registered (step >= 5), check if they are answering the Day 2 Midnight Alibi prompt!
+    if step >= 5:
         intake_data = json.loads(player["intake_data"] or "{}")
         is_alibi_reply = intake_data.get("awaiting_alibi", False) or content_clean.startswith("alibi:")
         if is_alibi_reply:
@@ -282,40 +318,54 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
     history.append({"role": "assistant", "content": reply_text})
     intake_data["conversation_history"] = history
 
-    if step < 3:
+    if step < 4:
         next_step = step + 1
         update_player_interview(message.author.id, step=next_step, intake_dict=intake_data)
         next_prompt = f"**Filarello:** {reply_text}\n\n**Question {next_step}:** {STEP_QUESTIONS[next_step]}"
         await message.channel.send(next_prompt)
     else:
-        # Step 3 accepted -> generate custom persona preview and ask for confirmation!
+        # Step 4 accepted -> generate custom persona preview, dirty secret, objective & physical clues!
         q1_ans = intake_data.get("question_1", "Guest")
         q2_ans = intake_data.get("question_2", "A mysterious traveling case")
-        q3_ans = intake_data.get("question_3", "A personal disagreement")
+        q3_ans = intake_data.get("question_3", "A subtle distinctive scent")
+        q4_ans = intake_data.get("question_4", "A confidential dispute")
 
         async with message.channel.typing():
             custom_dossier = await generate_custom_player_dossier(
                 player_name=message.author.display_name,
                 q1=q1_ans,
                 q2=q2_ans,
-                q3=q3_ans
+                q3=q3_ans,
+                q4=q4_ans
             )
 
         char_title = custom_dossier["title"]
         dirty_secret = custom_dossier["secret"]
         secret_goal = custom_dossier["goal"]
         item_brought = q2_ans
+        pending_clues = custom_dossier.get("clues", [])
+        intake_data["pending_clues"] = pending_clues
+        intake_data["witness_npc"] = custom_dossier.get("witness_npc", "gable")
+        intake_data["witness_sighting"] = custom_dossier.get("witness_sighting", "")
+        intake_data["corridor_breadcrumb"] = custom_dossier.get("corridor_breadcrumb", "")
 
-        # Set step=35 (Pending Confirmation) so they can review and Confirm or Redo!
+        # Set step=45 (Pending Confirmation) so they can review and Confirm or Redo!
         update_player_interview(
             message.author.id,
-            step=35,
+            step=45,
             intake_dict=intake_data,
             character_title=char_title,
             dirty_secret=dirty_secret,
             secret_goal=secret_goal,
             item_brought=item_brought
         )
+
+        clues_preview = ""
+        if pending_clues:
+            clues_preview = (
+                f"\n• **🔍 Evidence Web Seeded:** 2 physical clues and 1 staff eyewitness observation "
+                f"have been seeded into the estate for other sleuths to investigate!\n"
+            )
 
         final_packet = (
             f"**🕯️ Ravenscroft Hall — Draft Guest Dossier**\n\n"
@@ -325,7 +375,8 @@ async def handle_dm_intake(message: discord.Message, bot: discord.Client):
             f"• **Public Identity:** {char_title}\n"
             f"• **Declared Item:** {item_brought}\n"
             f"• **🤫 YOUR DIRTY SECRET:** {dirty_secret}\n"
-            f"• **🎯 YOUR SECRET OBJECTIVE:** {secret_goal}\n"
+            f"• **🎯 YOUR SECRET OBJECTIVE:** {secret_goal}"
+            f"{clues_preview}"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"*Does this accurately reflect your character? Click **✅ Confirm & Enter Estate** below to unlock the manor doors, or click **🔄 Redo Interview** if Filarello misrecorded any detail.*"
         )

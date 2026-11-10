@@ -107,7 +107,11 @@ async def scheduled_morning_dispatch():
             )
             await parlor.send(embed=inquest_embed, view=InquestView())
 
-        # 5. Refresh room header embeds in place
+        # 5. Reset daytime staff shifts (Angus at Carriage House, Gable off until 5 PM)
+        set_npc_shift("angus", True, channel_name="the-carriage-house", away_message="Old Angus has retired for the night.")
+        set_npc_shift("gable", False, away_message="Mrs. Gable is upstairs attending to linens. Returns to the kitchen at 5:00 PM.")
+
+        # 6. Refresh room header embeds in place
         await refresh_all_room_embeds(guild, bot.user)
 
     if day >= 2:
@@ -117,7 +121,7 @@ async def scheduled_morning_dispatch():
 async def shift_evening_start():
     """5:00 PM: Mrs. Gable arrives in Kitchen"""
     from cogs.admin_cog import refresh_all_room_embeds
-    set_npc_shift("gable", True)
+    set_npc_shift("gable", True, channel_name="the-kitchen-and-pantry")
     logger.info("Mrs. Gable is now ON SHIFT in the Kitchen.")
     for guild in bot.guilds:
         chan = discord.utils.get(guild.text_channels, name="the-kitchen-and-pantry")
@@ -127,22 +131,26 @@ async def shift_evening_start():
         await refresh_all_room_embeds(guild, bot.user)
 
 async def shift_angus_start():
-    """7:00 PM: Angus arrives in Furnace / Cellar"""
+    """7:00 PM: Angus moves from Carriage House down to Wine Cellar & Furnace"""
     from cogs.admin_cog import refresh_all_room_embeds
-    set_npc_shift("angus", True)
-    logger.info("Angus is now ON SHIFT in the Cellar.")
+    set_npc_shift("angus", True, channel_name="the-wine-cellar")
+    logger.info("Angus moved to ON SHIFT in the Wine Cellar.")
     for guild in bot.guilds:
-        chan = discord.utils.get(guild.text_channels, name="the-carriage-house")
-        if chan:
-            await chan.send("*(Heavy muddy boots stomp inside. Old Angus enters, drying his coat by the fire. He is now present).*")
-            await chan.edit(topic="🏰 The Carriage House | Status: 🟢 Old Angus is present at the workbench.")
+        c_chan = discord.utils.get(guild.text_channels, name="the-carriage-house")
+        if c_chan:
+            await c_chan.send("*(Old Angus knocks his pipe clean, grabs his coal shovel, and heads down to the Wine Cellar to stoke the furnace).*")
+            await c_chan.edit(topic="🏰 The Carriage House | Status: 🔴 VACANT (Angus is down in the Wine Cellar).")
+        w_chan = discord.utils.get(guild.text_channels, name="the-wine-cellar")
+        if w_chan:
+            await w_chan.send("*(Heavy iron doors grate open. Old Angus stomps into the cellar, shoveling coal into the roaring furnace. He is now present).*")
+            await w_chan.edit(topic="🏰 The Wine Cellar & Furnace | Status: 🟢 Old Angus is present stoking the furnace.")
         await refresh_all_room_embeds(guild, bot.user)
 
 async def shift_night_sleep():
     """10:30 PM: Staff goes to sleep (all rooms unattended) and Nightly Dispatches sent"""
     from cogs.admin_cog import send_nightly_summaries_to_all, refresh_all_room_embeds
-    set_npc_shift("gable", False)
-    set_npc_shift("angus", False)
+    set_npc_shift("gable", False, away_message="Mrs. Gable has retired to her bedchamber for the night.")
+    set_npc_shift("angus", False, away_message="Old Angus has retired for the night. The grounds and furnace are quiet.")
     logger.info("Estate staff is now asleep. Rooms are unattended.")
     for guild in bot.guilds:
         k_chan = discord.utils.get(guild.text_channels, name="the-kitchen-and-pantry")
@@ -151,8 +159,12 @@ async def shift_night_sleep():
             await k_chan.edit(topic="🏰 The Kitchen & Pantry | Status: 🔴 VACANT (Staff is asleep).")
         c_chan = discord.utils.get(guild.text_channels, name="the-carriage-house")
         if c_chan:
-            await c_chan.send("*(Old Angus puts out his lantern and locks up. The workshop is now quiet and unattended).*")
+            await c_chan.send("*(Old Angus puts out his lantern and locks up the carriage house. The workshop is now quiet and unattended).*")
             await c_chan.edit(topic="🏰 The Carriage House | Status: 🔴 VACANT (Staff is asleep).")
+        w_chan = discord.utils.get(guild.text_channels, name="the-wine-cellar")
+        if w_chan:
+            await w_chan.send("*(Old Angus banks the furnace and locks the cellar gate. The cellar is now quiet and unattended).*")
+            await w_chan.edit(topic="🏰 The Wine Cellar & Furnace | Status: 🔴 VACANT (Staff is asleep).")
         await refresh_all_room_embeds(guild, bot.user)
 
     # Deliver 10:30 PM personalized bedtime summaries in DMs!
@@ -192,10 +204,14 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to refresh room embeds on startup: {e}")
 
-    # Sync Slash Commands
+    # Sync Slash Commands immediately to all guilds (bypasses Discord 1-hour global cache delay)
     try:
+        for guild in bot.guilds:
+            bot.tree.copy_global_to(guild=guild)
+            synced_guild = await bot.tree.sync(guild=guild)
+            logger.info(f"Instantly synced {len(synced_guild)} slash commands to guild {guild.name} ({guild.id}).")
         synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} slash commands.")
+        logger.info(f"Globally synced {len(synced)} slash commands.")
     except Exception as e:
         logger.error(f"Failed to sync slash commands: {e}")
 

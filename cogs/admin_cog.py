@@ -9,7 +9,8 @@ from config import (
 from database import (
     get_current_day, set_current_day, refill_all_tokens, set_npc_shift,
     get_npc_status, reset_entire_game, get_all_ballots, get_all_players,
-    get_player, get_player_clues, is_murder_active, set_murder_active
+    get_player, get_player_clues, is_murder_active, set_murder_active,
+    update_player_interview
 )
 from data.game_data import DISPATCHES, PARLOR_POLLS, CANON_SOLUTION, get_parlor_poll
 from cogs.intake_view import BeginRegistrationView, restart_guest_interview, send_day2_alibi_prompts
@@ -253,7 +254,7 @@ class AdminCog(commands.Cog):
     async def my_dossier(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         player = get_player(user_id)
-        if not player or player["interview_step"] < 4:
+        if not player or player["interview_step"] < 5:
             await interaction.response.send_message(
                 "You haven't completed your intake registration with Filarello yet! Visit `#reception-gates`.", 
                 ephemeral=True
@@ -298,7 +299,7 @@ class AdminCog(commands.Cog):
     async def present_evidence_cmd(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         player = get_player(user_id)
-        if not player or player["interview_step"] < 4:
+        if not player or player["interview_step"] < 5:
             await interaction.response.send_message(
                 "You must complete your guest registration with Filarello at `#reception-gates` first.",
                 ephemeral=True
@@ -331,11 +332,29 @@ class AdminCog(commands.Cog):
 
         npc_id, npc_display_name, _, _, off_txt = npc_info
         status = get_npc_status(npc_id)
-        if status and not status["is_on_shift"]:
-            await interaction.response.send_message(
-                f"🔴 **{npc_display_name} is currently away** (*{off_txt}*). Return when they are on shift!",
-                ephemeral=True
-            )
+        is_here = False
+        if status and status["is_on_shift"]:
+            if npc_id == "angus":
+                active_loc = status["channel_name"] if "channel_name" in status.keys() else ""
+                if actual_room_id == "carriage" and active_loc == "the-carriage-house":
+                    is_here = True
+                elif actual_room_id == "cellar" and active_loc == "the-wine-cellar":
+                    is_here = True
+            else:
+                is_here = True
+
+        if not is_here:
+            if status and status["is_on_shift"] and npc_id == "angus":
+                other_loc = "the Wine Cellar" if status["channel_name"] == "the-wine-cellar" else "the Carriage House"
+                await interaction.response.send_message(
+                    f"🔴 **Old Angus is not here right now.** He is currently over in **{other_loc}**!",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    f"🔴 **{npc_display_name} is currently away** (*{off_txt}*). Return when they are on shift!",
+                    ephemeral=True
+                )
             return
 
         all_clues = get_player_clues(user_id)
@@ -373,6 +392,91 @@ class AdminCog(commands.Cog):
                 f"⚠️ Could not send a Direct Message to you ({e}). Please ensure DMs from server members are enabled.",
                 ephemeral=True
             )
+
+    @app_commands.command(name="guest_roster", description="Host command: View which guests have registered, their progress, and parlor arrival status.")
+    @app_commands.default_permissions(administrator=True)
+    async def guest_roster_cmd(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        import json
+        players = [dict(r) for r in get_all_players()]
+        if not players:
+            await interaction.followup.send("No guests have clicked the registry gates yet.", ephemeral=True)
+            return
+
+        confirmed = []
+        in_progress = []
+
+        for p in players:
+            step = p.get("interview_step", 0)
+            intake = json.loads(p.get("intake_data") or "{}")
+            announced = intake.get("announced_in_parlor", False)
+            ann_icon = "📢 Announced in Parlor" if announced else "⚠️ Not Announced Yet"
+            
+            if step >= 5:
+                title = p.get("character_title") or "Unknown Title"
+                item = p.get("item_brought") or "None"
+                confirmed.append(
+                    f"• <@{p['discord_id']}> ({p.get('display_name') or p.get('username')})\n"
+                    f"  **Persona:** {title}\n"
+                    f"  **Luggage Prop:** {item}\n"
+                    f"  **Status:** {ann_icon}"
+                )
+            else:
+                step_str = f"Question {step}/4" if 1 <= step <= 4 else ("Awaiting Confirmation (Reviewing Dossier)" if step in (35, 45) else f"Step {step}")
+                confirmed_ans = len([k for k in intake.keys() if k.startswith("question_")])
+                in_progress.append(
+                    f"• <@{p['discord_id']}> ({p.get('display_name') or p.get('username')}) — **{step_str}** ({confirmed_ans}/4 questions answered)"
+                )
+
+        embed = discord.Embed(
+            title="🏰 Ravenscroft Hall — Guest Registry Status",
+            color=0xD4AF37
+        )
+        if confirmed:
+            embed.add_field(
+                name=f"✅ Confirmed & Checked-In Guests ({len(confirmed)})",
+                value="\n\n".join(confirmed),
+                inline=False
+            )
+        else:
+            embed.add_field(name="✅ Confirmed & Checked-In Guests (0)", value="None yet.", inline=False)
+
+        if in_progress:
+            embed.add_field(
+                name=f"⏳ Intake In Progress ({len(in_progress)})",
+                value="\n".join(in_progress),
+                inline=False
+            )
+
+        embed.set_footer(text=f"Total: {len(confirmed)} Confirmed, {len(in_progress)} In Progress • Use /announce_guest to re-post an arrival.")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="announce_guest", description="Host command: Manually trigger Filarello's Grand Parlor arrival announcement for a guest.")
+    @app_commands.default_permissions(administrator=True)
+    async def announce_guest_cmd(self, interaction: discord.Interaction, guest: discord.Member):
+        await interaction.response.defer(ephemeral=True)
+        import json
+        player = get_player(guest.id)
+        if not player or player["interview_step"] < 5:
+            await interaction.followup.send(
+                f"{guest.mention} has not completed registration yet (Current step: {player['interview_step'] if player else 0}).",
+                ephemeral=True
+            )
+            return
+
+        parlor = discord.utils.get(interaction.guild.text_channels, name=PARLOR_CHANNEL_NAME)
+        if not parlor:
+            await interaction.followup.send("Could not find `#the-grand-parlor` channel.", ephemeral=True)
+            return
+
+        await parlor.send(
+            f"🔔 *(Filarello smoothly opens the heavy oak doors of the Grand Parlor, bowing with dry elegance)*\n"
+            f"**Filarello:** *\"Pray welcome **{player['character_title']}** ({guest.mention}), who has managed to cross the flooded causeway carrying **{player['item_brought']}**. Do make yourselves civil.\"*"
+        )
+        intake_data = json.loads(player["intake_data"] or "{}")
+        intake_data["announced_in_parlor"] = True
+        update_player_interview(guest.id, step=player["interview_step"], intake_dict=intake_data)
+        await interaction.followup.send(f"✅ Announced {guest.mention} (**{player['character_title']}**) in `#the-grand-parlor`!", ephemeral=True)
 
     @app_commands.command(name="setup_estate", description="Host only: Auto-creates all Ravenscroft channels, roles, and permissions.")
     @app_commands.default_permissions(administrator=True)
@@ -464,21 +568,30 @@ class AdminCog(commands.Cog):
         refill_all_tokens()
         await interaction.response.send_message("🕯️ All player candles have been refilled to 2!", ephemeral=True)
 
-    @app_commands.command(name="test_npc_shift", description="Test Mode: Set an NPC on or off shift.")
+    @app_commands.command(name="test_npc_shift", description="Test Mode: Set an NPC on or off shift, and optionally choose Angus's room (carriage or cellar).")
     @app_commands.default_permissions(administrator=True)
-    async def test_npc_shift_cmd(self, interaction: discord.Interaction, npc: str, on_shift: bool):
+    async def test_npc_shift_cmd(self, interaction: discord.Interaction, npc: str, on_shift: bool, location: str = ""):
         npc = npc.lower()
         if npc not in ("giles", "gable", "angus", "higgins", "abernathy"):
             await interaction.response.send_message("NPC must be one of: giles, gable, angus, higgins, abernathy.", ephemeral=True)
             return
 
         await interaction.response.defer(ephemeral=True)
-        set_npc_shift(npc, on_shift)
+        guild = interaction.guild
+        chan_name = NPC_CHANNELS.get(npc)
+        
+        if npc == "angus":
+            if "cellar" in location.lower() or "wine" in location.lower():
+                chan_name = "the-wine-cellar"
+            else:
+                chan_name = "the-carriage-house"
+            set_npc_shift("angus", on_shift, channel_name=chan_name)
+        else:
+            set_npc_shift(npc, on_shift)
+
         status_text = "ON SHIFT (Available)" if on_shift else "OFF SHIFT (Away message)"
 
         # Post in-character movement announcement and refresh room embed badge
-        guild = interaction.guild
-        chan_name = NPC_CHANNELS.get(npc)
         if chan_name:
             chan = discord.utils.get(guild.text_channels, name=chan_name)
             if chan:
@@ -494,7 +607,7 @@ class AdminCog(commands.Cog):
     @app_commands.command(name="trigger_murder", description="Host command: Trigger the 11:42 PM murder blackout, unlock searches, and begin Day 2.")
     @app_commands.default_permissions(administrator=True)
     async def trigger_murder_cmd(self, interaction: discord.Interaction):
-        await self.test_trigger_murder(interaction)
+        await self.test_trigger_murder.callback(self, interaction)
 
     @app_commands.command(name="trigger_final_inquest", description="Host command: Pause the clock, summon everyone to the Grand Parlor, and open the accusation ballot.")
     @app_commands.default_permissions(administrator=True)
@@ -522,12 +635,12 @@ class AdminCog(commands.Cog):
     @app_commands.command(name="trigger_reveal", description="Host command: Tally ballots, crown the Master Sleuth, and deliver Filarello's reveal monologue.")
     @app_commands.default_permissions(administrator=True)
     async def trigger_reveal_cmd(self, interaction: discord.Interaction):
-        await self.test_trigger_reveal(interaction)
+        await self.test_trigger_reveal.callback(self, interaction)
 
     @app_commands.command(name="reset_game", description="Host command: Full factory reset. Wipes all chat, revokes guest roles, resets to Day 1 pre-murder.")
     @app_commands.default_permissions(administrator=True)
     async def reset_game_cmd(self, interaction: discord.Interaction):
-        await self.test_reset_game(interaction)
+        await self.test_reset_game.callback(self, interaction)
 
     @app_commands.command(name="test_trigger_murder", description="Test Mode: Trigger the dramatic 11:42 PM murder blackout and unlock searches.")
     @app_commands.default_permissions(administrator=True)
@@ -750,7 +863,7 @@ async def send_nightly_summaries_to_all(bot: commands.Bot) -> int:
 
     delivered = 0
     for p in players:
-        if p["interview_step"] < 4:
+        if p["interview_step"] < 5:
             continue
         try:
             user = await bot.fetch_user(p["discord_id"])

@@ -64,51 +64,86 @@ class NpcCog(commands.Cog):
             else:
                 return
 
-        # Ignore messages where a player is explicitly @mentioning another human player (without @mentioning the bot)
+        content_lower = message.content.lower().strip()
+
+        # --- 1. IGNORE RULES (Addressing other players, roles, or OOC banter) ---
+        # A. Explicitly @mentioning another human player in Discord
         mentions_other_human = any(not m.bot for m in message.mentions) and (self.bot.user not in message.mentions)
-        if mentions_other_human:
+        
+        # B. Mentioning any role (@Guest, @everyone, @here) or using text-based group pings
+        mentions_role_or_everyone = (
+            bool(message.role_mentions) or 
+            message.mention_everyone or
+            any(tag in content_lower for tag in ("@guest", "@guests", "@player", "@players", "@everyone", "@here", "@all", "@everybody", "@team", "@room"))
+        )
+        
+        # C. Out-of-character prefixes (e.g. //, ((, [ooc], ooc:)
+        is_ooc = (
+            content_lower.startswith(("//", "((", "[[", "(ooc", "[ooc", "ooc:", "ooc ")) or
+            content_lower.endswith(("//", "))", "]]"))
+        )
+
+        if mentions_other_human or mentions_role_or_everyone or is_ooc:
             return
 
-        # Check triggers:
-        # 1. Bot is @mentioned
-        # 2. User replied to a bot message
-        # 3. User mentioned NPC name/role in the channel
-        # 4. Message contains '?' in that NPC's dedicated room
-        # 5. User is within an active 3-minute conversation window with that room's NPC
-        # 6. In dedicated NPC rooms (excluding Grand Parlor social chat), message starts with/contains conversational inquiry phrases
+        # --- 2. TRIGGER CONDITIONS ---
+        # 1. Bot is explicitly @mentioned
+        # 2. User replied directly to a bot message
+        # 3. User explicitly named this room's NPC (e.g. "Filarello", "Mrs. Gable", "butler", "steward")
+        # 4. In dedicated staff workrooms (Kitchen, Study, Carriage House, Radio Room):
+        #    - A direct question '?' or conversational inquiry when nobody else is addressed
+        #    - An active short 45s conversation window
+        # NOTE: In #the-grand-parlor, guests talk to EACH OTHER! Filarello only responds if explicitly addressed by name or reply!
         is_mentioned = self.bot.user in message.mentions
         is_reply_to_bot = (
             message.reference and 
             message.reference.resolved and 
             message.reference.resolved.author.id == self.bot.user.id
         )
-        content_lower = message.content.lower().strip()
         has_npc_name = any(trigger in content_lower for trigger in NPC_TRIGGER_WORDS.get(npc_id, []))
-        is_direct_question = ("?" in message.content and channel_name in CHANNEL_TO_NPC)
 
         now = time.time()
         last_active = self.active_conversations.get((message.channel.id, message.author.id), 0.0)
-        window_seconds = 120.0 if channel_name == "the-grand-parlor" else 180.0
+        window_seconds = 45.0  # Tightened from 120-180s down to 45s
         in_active_conversation = (now - last_active) <= window_seconds
 
-        is_dedicated_npc_room = (channel_name in CHANNEL_TO_NPC and channel_name != "the-grand-parlor")
+        is_grand_parlor = (channel_name == "the-grand-parlor")
+        is_dedicated_npc_room = (channel_name in CHANNEL_TO_NPC and not is_grand_parlor)
+
+        is_direct_question = is_dedicated_npc_room and ("?" in message.content)
         is_conversational_prompt = is_dedicated_npc_room and (
             content_lower.startswith(CONVERSATION_PHRASES) or
             any(p in content_lower for p in ("tell me", "show me", "let me see", "what about", "how about"))
         )
 
-        if not (is_mentioned or is_reply_to_bot or has_npc_name or is_direct_question or in_active_conversation or is_conversational_prompt):
+        if is_grand_parlor:
+            should_respond = is_mentioned or is_reply_to_bot or has_npc_name
+        else:
+            should_respond = (is_mentioned or is_reply_to_bot or has_npc_name or is_direct_question or in_active_conversation or is_conversational_prompt)
+
+        if not should_respond:
             return
 
         # Refresh active conversation window for this player in this room!
         self.active_conversations[(message.channel.id, message.author.id)] = now
 
-        # Check NPC shift status
+        # Check NPC shift status and physical room location
         npc_status = get_npc_status(npc_id)
-        if npc_status and not npc_status["is_on_shift"]:
-            away_msg = npc_status["away_message"] or "The staff member is currently off duty."
-            await message.reply(f"*(The room is quiet. A handwritten slate reads: '{away_msg}')*")
-            return
+        if npc_status:
+            if not npc_status["is_on_shift"]:
+                away_msg = npc_status["away_message"] or "The staff member is currently off duty."
+                await message.reply(f"*(The room is quiet. A handwritten slate reads: '{away_msg}')*")
+                return
+
+            # For Angus: verify he is physically in THIS station and not the other
+            if npc_id == "angus":
+                active_loc = npc_status["channel_name"]
+                if active_loc and active_loc != channel_name:
+                    if active_loc == "the-wine-cellar":
+                        await message.reply("*(The workshop is quiet. A chalk note on the workbench reads: 'Down in the Wine Cellar stoking the coal furnace. -Angus')*")
+                    else:
+                        await message.reply("*(The Wine Cellar is freezing and dark. A note on the coal chute reads: 'Up at the Carriage House workshop repairing tools. -Angus')*")
+                    return
 
         # Clean text
         clean_prompt = message.clean_content.replace(f"@{self.bot.user.name}", "").strip()

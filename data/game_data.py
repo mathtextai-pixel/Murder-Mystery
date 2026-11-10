@@ -546,7 +546,7 @@ PARLOR_POLLS = {
         ]
     },
     2: {
-        "question": "⚖️ ESTATE POLL: Whose whereabouts between 10:00 PM and midnight appear the most suspicious?",
+        "question": "⚖️ DAY 2 PARLOR POLL: Whose 11:42 PM whereabouts or initial alibi seem most dubious?",
         "options": [
             "Those claiming to have been asleep in their bedchambers",
             "Those seen near the rain-swept terrace doors",
@@ -555,7 +555,7 @@ PARLOR_POLLS = {
         ]
     },
     3: {
-        "question": "📜 ESTATE POLL: A will document was tampered with. What motive seems most plausible?",
+        "question": "📜 DAY 3 PARLOR POLL: Lord Julian's Will amendments were violently disputed. Which guest had the most pressing grievance against him?",
         "options": [
             "A guest burdened by desperate, ruinous personal debts",
             "A guest whose secret past Julian threatened to expose",
@@ -564,7 +564,7 @@ PARLOR_POLLS = {
         ]
     },
     4: {
-        "question": "🧳 ESTATE POLL: Should the guests consent to an immediate mutual search of all traveling luggage?",
+        "question": "🧳 DAY 4 PARLOR POLL: Should the guests consent to a mutual search of luggage? Whose declared effects would you inspect first?",
         "options": [
             "Yes — Complete transparency now!",
             "No — An outrageous violation of personal privacy!",
@@ -591,7 +591,7 @@ PARLOR_POLLS = {
         ]
     },
     7: {
-        "question": "🔥 MIDWAY POLL: If you had to name a prime suspect right now, who would you lock in the cellar?",
+        "question": "🔥 MIDWAY POLL: The house is halfway through the fortnight. If you had to lock one prime suspect in the cellar tonight, who would you choose?",
         "options": [
             "The guest whose story has changed twice",
             "The guest who has spent the most candles searching alone",
@@ -627,7 +627,7 @@ PARLOR_POLLS = {
         ]
     },
     11: {
-        "question": "👤 ESTATE POLL: Mainland records name Barnaby Finch. Is the disgraced former steward among us?",
+        "question": "👤 DAY 11 PARLOR POLL: Disgraced former steward Barnaby Finch has broken out of the asylum. Which guest seems most likely to be his inside accomplice?",
         "options": [
             "He is hiding in the secret service passages",
             "He has an accomplice among the guests",
@@ -645,7 +645,7 @@ PARLOR_POLLS = {
         ]
     },
     13: {
-        "question": "📋 INQUEST PREP: With the inquest tomorrow, how confident are you in your final theory?",
+        "question": "📋 PRE-INQUEST STRAW POLL: With tomorrow's formal inquest looming, which guest has the most explaining to do to the Constable?",
         "options": [
             "100% — I know killer, weapon, and motive",
             "Fairly confident — A few minor details hazy",
@@ -654,7 +654,7 @@ PARLOR_POLLS = {
         ]
     },
     14: {
-        "question": "🏆 FINAL CONSENSUS: Who will be crowned Master Sleuth of Ravenscroft tonight?",
+        "question": "🏆 FINAL CONSENSUS: Who proved themselves the sharpest detective among the guests across these 14 days?",
         "options": [
             "The sharpest detective among us",
             "The guest who guarded their secrets best",
@@ -666,29 +666,55 @@ PARLOR_POLLS = {
 
 def get_parlor_poll(day: int) -> dict:
     """
-    Returns the daily parlor poll. For the Midway Prime Suspect poll (Day 7),
-    if players have registered in the database, their custom character titles
-    and display names are injected dynamically into the voting options!
+    Returns the daily parlor poll. For suspect polls (Days 2, 3, 4, 7, 11, 13, 14),
+    the registered guests' chosen character titles, names, and declared props
+    are dynamically injected directly into the voting options!
     """
     poll_data = PARLOR_POLLS.get(day, PARLOR_POLLS[1]).copy()
     
-    if day == 7:
-        try:
-            from database import get_all_players
-            players = [dict(row) for row in get_all_players()]
-            registered = [p for p in players if p.get("interview_step", 0) >= 4]
-            if registered:
+    try:
+        from database import get_all_players
+        players = [dict(row) for row in get_all_players()]
+        registered = [p for p in players if p.get("interview_step", 0) >= 5]
+        
+        if registered:
+            if day in (2, 3, 7, 11, 13):
+                custom_options = [
+                    f"{p.get('character_title', 'Guest')} ({p.get('display_name') or p.get('username')})"[:95]
+                    for p in registered
+                ]
+                if day == 2:
+                    custom_options.append("An uninvited intruder slipping through the storm")
+                elif day == 3:
+                    custom_options.append("An accomplice working with an outside confederate")
+                elif day == 7:
+                    custom_options.append("Nobody — There is an uninvited squatter in the walls!")
+                elif day == 11:
+                    custom_options.append("He is working entirely alone from the crawlspaces!")
+                poll_data["options"] = custom_options[:25]
+
+            elif day == 4:
+                # Day 4 Luggage search: Character Title + their declared Luggage Prop!
                 custom_options = []
                 for p in registered:
-                    title = p.get("character_title") or "Mysterious Guest"
-                    name = p.get("display_name") or p.get("username") or "Guest"
-                    label = f"{title} ({name})"
-                    if len(label) > 95:
-                        label = label[:92] + "..."
-                    custom_options.append(label)
-                if custom_options:
-                    poll_data["options"] = custom_options[:25]
-        except Exception:
-            pass
-            
+                    title_short = str(p.get("character_title", "Guest")).split(",")[0].strip()
+                    item = str(p.get("item_brought") or "Luggage").strip()
+                    if len(item) > 38:
+                        item = item[:35] + "..."
+                    custom_options.append(f"{title_short}: {item}"[:95])
+                custom_options.append("Nobody — Keep all traveling trunks locked!")
+                poll_data["options"] = custom_options[:25]
+
+            elif day == 14:
+                # Day 14 Master Sleuth vote
+                custom_options = [
+                    f"{p.get('character_title', 'Guest')} ({p.get('display_name') or p.get('username')})"[:95]
+                    for p in registered
+                ]
+                custom_options.append("Nobody — Barnaby Finch outsmarted everyone!")
+                custom_options.append("Filarello the Butler")
+                poll_data["options"] = custom_options[:25]
+    except Exception:
+        pass
+        
     return poll_data

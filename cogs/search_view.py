@@ -1,7 +1,8 @@
 import discord
 import random
 from database import (
-    get_player, consume_token, record_player_clue, get_player_clues, get_npc_status, is_murder_active
+    get_player, consume_token, record_player_clue, get_player_clues, get_npc_status, is_murder_active,
+    get_dynamic_room_clues
 )
 from data.game_data import ROOM_POOLS, ROOM_ATMOSPHERES, PRE_MURDER_ROOM_ATMOSPHERES
 from data.prompts import evaluate_interrogation_state
@@ -116,10 +117,28 @@ def build_room_embed(room_id: str, room_name: str) -> discord.Embed:
         npc_id, name, pre_murder_on_txt, post_murder_on_txt, off_txt = npc_info
         on_txt = post_murder_on_txt if murder_active else pre_murder_on_txt
         status = get_npc_status(npc_id)
+        
+        is_here = False
         if status and status["is_on_shift"]:
+            if npc_id == "angus":
+                active_loc = status["channel_name"] if "channel_name" in status.keys() else ""
+                if room_id == "carriage" and active_loc == "the-carriage-house":
+                    is_here = True
+                elif room_id == "cellar" and active_loc == "the-wine-cellar":
+                    is_here = True
+            else:
+                is_here = True
+
+        if is_here:
             occupancy_str = f"🟢 **{name}** — *[{on_txt}]*"
         else:
-            occupancy_str = f"🔴 **VACANT** — *[{off_txt}]*"
+            if status and status["is_on_shift"] and npc_id == "angus":
+                if room_id == "carriage":
+                    occupancy_str = "🔴 **VACANT** — *[Away down in the Wine Cellar stoking the furnace]*"
+                else:
+                    occupancy_str = "🔴 **VACANT** — *[Away up at the Carriage House workshop]*"
+            else:
+                occupancy_str = f"🔴 **VACANT** — *[{off_txt}]*"
     else:
         occupancy_str = "⚪ **UNATTENDED** — *Quiet; only the sound of rain.*"
 
@@ -216,7 +235,7 @@ class RoomSearchView(discord.ui.View):
         user_id = interaction.user.id
         player = get_player(user_id)
         
-        if not player or player["interview_step"] < 4:
+        if not player or player["interview_step"] < 5:
             await interaction.response.send_message(
                 "You must complete your guest registration with Filarello at `#reception-gates` before searching the estate.",
                 ephemeral=True
@@ -263,7 +282,11 @@ class RoomSearchView(discord.ui.View):
         found_clues = get_player_clues(user_id)
         found_titles = {c["clue_title"] for c in found_clues}
 
-        available_majors = [c for c in room_data["major"] if c[0] not in found_titles]
+        # Combine static major clues with dynamically generated player clues seeded into this chamber!
+        dynamic_clues = get_dynamic_room_clues(actual_room_id)
+        combined_majors = list(room_data.get("major", [])) + dynamic_clues
+
+        available_majors = [c for c in combined_majors if c[0] not in found_titles]
 
         # Probability Roll: 40% major, 45% lore, 15% empty
         # Bad luck protection: if 3 consecutive non-majors, force major if available
@@ -340,7 +363,7 @@ class RoomSearchView(discord.ui.View):
     async def present_evidence_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
         player = get_player(user_id)
-        if not player or player["interview_step"] < 4:
+        if not player or player["interview_step"] < 5:
             await interaction.response.send_message(
                 "You must complete your guest registration with Filarello at `#reception-gates` first.",
                 ephemeral=True
@@ -373,11 +396,29 @@ class RoomSearchView(discord.ui.View):
 
         npc_id, npc_display_name, _, _, off_txt = npc_info
         status = get_npc_status(npc_id)
-        if status and not status["is_on_shift"]:
-            await interaction.response.send_message(
-                f"🔴 **{npc_display_name} is currently away** (*{off_txt}*). Return when they are on shift!",
-                ephemeral=True
-            )
+        is_here = False
+        if status and status["is_on_shift"]:
+            if npc_id == "angus":
+                active_loc = status["channel_name"] if "channel_name" in status.keys() else ""
+                if actual_room_id == "carriage" and active_loc == "the-carriage-house":
+                    is_here = True
+                elif actual_room_id == "cellar" and active_loc == "the-wine-cellar":
+                    is_here = True
+            else:
+                is_here = True
+
+        if not is_here:
+            if status and status["is_on_shift"] and npc_id == "angus":
+                other_loc = "the Wine Cellar" if status["channel_name"] == "the-wine-cellar" else "the Carriage House"
+                await interaction.response.send_message(
+                    f"🔴 **Old Angus is not here right now.** He is currently over in **{other_loc}**!",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    f"🔴 **{npc_display_name} is currently away** (*{off_txt}*). Return when they are on shift!",
+                    ephemeral=True
+                )
             return
 
         all_clues = get_player_clues(user_id)

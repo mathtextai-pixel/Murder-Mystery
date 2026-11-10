@@ -81,6 +81,29 @@ def init_db():
         away_message TEXT
     )
     """)
+
+    # 6. Dynamic Player-Generated Clues Seeded into Rooms
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS room_dynamic_clues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_discord_id INTEGER,
+        room_id TEXT,
+        clue_title TEXT,
+        clue_text TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 7. Dynamic NPC Witness Sightings of Guests
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS guest_witness_sightings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_discord_id INTEGER,
+        npc_id TEXT,
+        sighting_text TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
     
     # Default State
     c.execute("INSERT OR IGNORE INTO game_state (key, value) VALUES ('current_day', '1')")
@@ -330,10 +353,75 @@ def get_npc_status(npc_id: str):
     conn.close()
     return row
 
-def set_npc_shift(npc_id: str, is_on_shift: bool):
+def set_npc_shift(npc_id: str, is_on_shift: bool, channel_name: str = None, away_message: str = None):
     conn = get_connection()
     c = conn.cursor()
-    c.execute("UPDATE npc_state SET is_on_shift = ? WHERE npc_id = ?", (1 if is_on_shift else 0, npc_id))
+    if channel_name and away_message:
+        c.execute("UPDATE npc_state SET is_on_shift = ?, channel_name = ?, away_message = ? WHERE npc_id = ?",
+                  (1 if is_on_shift else 0, channel_name, away_message, npc_id))
+    elif channel_name:
+        c.execute("UPDATE npc_state SET is_on_shift = ?, channel_name = ? WHERE npc_id = ?",
+                  (1 if is_on_shift else 0, channel_name, npc_id))
+    elif away_message:
+        c.execute("UPDATE npc_state SET is_on_shift = ?, away_message = ? WHERE npc_id = ?",
+                  (1 if is_on_shift else 0, away_message, npc_id))
+    else:
+        c.execute("UPDATE npc_state SET is_on_shift = ? WHERE npc_id = ?",
+                  (1 if is_on_shift else 0, npc_id))
+    conn.commit()
+    conn.close()
+
+# --- Dynamic Room Clue Helpers ---
+
+def add_dynamic_room_clue(source_discord_id: int, room_id: str, clue_title: str, clue_text: str):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""
+    INSERT INTO room_dynamic_clues (source_discord_id, room_id, clue_title, clue_text)
+    VALUES (?, ?, ?, ?)
+    """, (source_discord_id, room_id, clue_title, clue_text))
+    conn.commit()
+    conn.close()
+
+def get_dynamic_room_clues(room_id: str):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT clue_title, clue_text FROM room_dynamic_clues WHERE room_id = ?", (room_id,))
+    rows = c.fetchall()
+    conn.close()
+    return [(r["clue_title"], r["clue_text"]) for r in rows]
+
+def clear_player_dynamic_clues(source_discord_id: int):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM room_dynamic_clues WHERE source_discord_id = ?", (source_discord_id,))
+    conn.commit()
+    conn.close()
+
+# --- Dynamic NPC Witness Sighting Helpers ---
+
+def add_witness_sighting(source_discord_id: int, npc_id: str, sighting_text: str):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""
+    INSERT INTO guest_witness_sightings (source_discord_id, npc_id, sighting_text)
+    VALUES (?, ?, ?)
+    """, (source_discord_id, npc_id, sighting_text))
+    conn.commit()
+    conn.close()
+
+def get_npc_witness_sightings(npc_id: str):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT sighting_text FROM guest_witness_sightings WHERE npc_id = ?", (npc_id,))
+    rows = c.fetchall()
+    conn.close()
+    return [r["sighting_text"] for r in rows]
+
+def clear_player_witness_sightings(source_discord_id: int):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM guest_witness_sightings WHERE source_discord_id = ?", (source_discord_id,))
     conn.commit()
     conn.close()
 
@@ -345,6 +433,8 @@ def reset_entire_game():
     c.execute("DELETE FROM players")
     c.execute("DELETE FROM player_clues")
     c.execute("DELETE FROM ballots")
+    c.execute("DELETE FROM room_dynamic_clues")
+    c.execute("DELETE FROM guest_witness_sightings")
     c.execute("UPDATE game_state SET value = '1' WHERE key = 'current_day'")
     c.execute("UPDATE game_state SET value = '0' WHERE key = 'murder_active'")
     c.execute("UPDATE npc_state SET is_on_shift = 1")

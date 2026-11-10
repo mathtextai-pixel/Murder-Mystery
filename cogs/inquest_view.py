@@ -33,7 +33,7 @@ class AccusationModal(discord.ui.Modal, title="⚖️ The Ravenscroft Inquest Ba
         user_id = interaction.user.id
         player = get_player(user_id)
         
-        if not player or player["interview_step"] < 4:
+        if not player or player["interview_step"] < 5:
             await interaction.response.send_message(
                 "You must be an active registered guest to submit an accusation.", 
                 ephemeral=True
