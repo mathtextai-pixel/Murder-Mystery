@@ -249,6 +249,8 @@ def run_bot_resilient():
         bot.run(DISCORD_TOKEN)
 
 def main():
+    print("⛔ Ravenscroft Hall bot has been permanently disabled.")
+    return
     if not DISCORD_TOKEN:
         print("⚠️ ERROR: DISCORD_TOKEN is missing in .env!")
         return
